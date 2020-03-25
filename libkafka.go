@@ -45,3 +45,16 @@ Most internal structures are exposed to make debugging and metrics collection
 easier.
 */
 package libkafka
+
+import (
+	"github.com/mkocikowski/libkafka/batch"
+	"github.com/mkocikowski/libkafka/record"
+)
+
+func NewRecord(key, value []byte) *Record {
+	return record.New(key, value)
+}
+
+type Record = record.Record
+
+type Batch = batch.Batch
