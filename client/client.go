@@ -7,7 +7,6 @@ package client
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"math/rand"
@@ -26,7 +25,6 @@ import (
 	"github.com/mkocikowski/libkafka/api/OffsetCommit"
 	"github.com/mkocikowski/libkafka/api/OffsetFetch"
 	"github.com/mkocikowski/libkafka/api/Produce"
-	"github.com/mkocikowski/libkafka/batch"
 )
 
 // LookupSrv and return unordered list of resolved host:port strings.
@@ -144,8 +142,8 @@ be parsed then the API call returns an error and the underlying connection is
 closed (it will be re-opened on next call). If response is parsed successfully
 no error is returned but this means only that the request-response round trip
 was completed: there could be an error code returned in the Kafka response
-itself. Checking for and interpreting that error is up to the user. Retries are
-up to the user.
+itself. Checking for and interpreting that error (and possibly closing the
+connection) is up to the user. Retries are up to the user.
 
 All PartitionClient calls are safe for concurrent use.
 */
@@ -223,13 +221,8 @@ func (c *PartitionClient) Fetch(offset int64) (*Fetch.Response, error) {
 	return resp, c.request(req, resp)
 }
 
-func (c *PartitionClient) Produce(b *batch.Batch) (*Produce.Response, error) {
-	if b == nil {
-		return nil, fmt.Errorf("no data")
-	}
-	buf := new(bytes.Buffer)
-	buf.Write(b.Marshal())
-	req := Produce.NewRequest(c.Topic, c.Partition, buf.Bytes())
+func (c *PartitionClient) Produce(batch []byte) (*Produce.Response, error) {
+	req := Produce.NewRequest(c.Topic, c.Partition, batch)
 	resp := &Produce.Response{}
 	return resp, c.request(req, resp)
 }

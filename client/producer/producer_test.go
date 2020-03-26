@@ -2,6 +2,7 @@ package producer
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -91,4 +92,30 @@ func TestIntergationPartitionProducerBadTopic(t *testing.T) {
 		t.Fatalf("%+v", resp)
 	}
 	t.Log(err)
+}
+
+func TestIntergationPartitionProducerCorruptBytes(t *testing.T) {
+	bootstrap := "localhost:9092"
+	topic := fmt.Sprintf("test-%x", rand.Uint32())
+	if _, err := client.CreateTopic(bootstrap, topic, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	p := &PartitionProducer{
+		PartitionClient: client.PartitionClient{
+			Bootstrap: bootstrap,
+			Topic:     topic,
+			Partition: 0,
+		},
+	}
+	now := time.Unix(1584485804, 0)
+	b, _ := batch.NewBuilder(now).AddStrings("foo", "bar").Build(now, &compression.Nop{})
+	corrupted := b.Marshal()
+	corrupted[len(corrupted)-1] = math.MaxUint8 - corrupted[len(corrupted)-1]
+	resp, err := p.PartitionClient.Produce(corrupted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, _ := parseResponse(resp); r.ErrorCode != errors.CORRUPT_MESSAGE {
+		t.Fatalf("%+v", r)
+	}
 }
