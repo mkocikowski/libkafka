@@ -3,4 +3,12 @@ language: go
 go:
 - "1.13"
 
-script: go test -v ./... -run=Unit
+services:
+  - docker
+
+before_install:
+  - docker-compose -f test/docker-compose.yaml build
+  - docker-compose -f test/docker-compose.yaml up -d
+  - test/wait-for-it.sh -h localhost -p 9092 -t 15
+
+script: go test -v ./...
