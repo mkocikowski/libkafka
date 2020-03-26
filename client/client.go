@@ -1,4 +1,8 @@
-// Package client contains base code for single partition producer and consumer implementations.
+// Package client contains base code for single partition producer and consumer
+// implementations. All calls in this package are synchronous and execute in
+// the main goroutine (no goroutines are spun up). Partition producers and
+// consumers (implemented in sub packages) are based on the PartitionClient
+// implemented in this package.
 package client
 
 import (

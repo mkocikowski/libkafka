@@ -54,6 +54,9 @@ func (p *PartitionProducer) ProduceStrings(now time.Time, values ...string) (*Re
 	return p.Produce(b)
 }
 
+// Produce (send) batch to Kafka. Single request is made (no retries). The call
+// is blocking. See documentation for client.PartitionClient for details on how
+// errors are handled.
 func (p *PartitionProducer) Produce(b *batch.Batch) (*Response, error) {
 	resp, err := p.PartitionClient.Produce(b)
 	if err != nil {

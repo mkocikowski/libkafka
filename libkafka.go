@@ -1,14 +1,15 @@
 /*
 Package libkafka is a low level library for producing to and consuming from
 Kafka 2.3+. It has no external dependencies. It is not modeled on the Java
-client.
+client. All API calls are synchronous and all code executes in the calling
+goroutine.
 
 
 Project Scope
 
 The library focuses on non transactional production and consumption. It
 implements single partition Producer and Consumer. Multi partition producers
-and consumers are built on top of this library.
+and consumers are built on top of this library (example: https://github.com/mkocikowski/kafkaclient).
 
 
 Get Started

@@ -1,3 +1,4 @@
+// Package varint implements varint and ZigZag encoding and decoding.
 package varint
 
 // https://github.com/gogo/protobuf/blob/master/proto/encode.go#L153
