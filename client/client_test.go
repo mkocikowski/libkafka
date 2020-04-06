@@ -30,48 +30,6 @@ func TestIntegrationGetApiVersionsBadHost(t *testing.T) {
 	t.Log(err)
 }
 
-func TestIntegrationCallFindCoordinator(t *testing.T) {
-	brokers := "localhost:9092"
-	topic := "test"
-	group := "test-group"
-	if _, err := CreateTopic(brokers, topic, 1, 1); err != nil {
-		t.Fatal(err)
-	}
-	r, err := CallFindCoordinator(brokers, group)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", r)
-}
-
-func TestIntegrationCallOffsetFetch(t *testing.T) {
-	brokers := "localhost:9092"
-	topic := "test"
-	group := "test-group"
-	if _, err := CreateTopic(brokers, topic, 1, 1); err != nil {
-		t.Fatal(err)
-	}
-	r, err := CallOffsetFetch(brokers, group, topic, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", r)
-}
-
-func TestIntegrationCallOffsetCommit(t *testing.T) {
-	brokers := "localhost:9092"
-	topic := "test"
-	group := "test-group"
-	if _, err := CreateTopic(brokers, topic, 1, 1); err != nil {
-		t.Fatal(err)
-	}
-	r, err := CallOffsetCommit(brokers, group, topic, 0, 10, 5000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", r)
-}
-
 func TestIntegrationCreateTopic(t *testing.T) {
 	brokers := "localhost:9092"
 	topic := fmt.Sprintf("test-%x", rand.Uint32())

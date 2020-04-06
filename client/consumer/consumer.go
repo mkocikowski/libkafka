@@ -9,9 +9,7 @@ import (
 	"github.com/mkocikowski/libkafka/api/Fetch"
 	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/client"
-	"github.com/mkocikowski/libkafka/compression"
 	"github.com/mkocikowski/libkafka/errors"
-	"github.com/mkocikowski/libkafka/record"
 )
 
 func unmarshal(recordSetBytes []byte) ([]*batch.Batch, error) {
@@ -39,35 +37,38 @@ func parseResponse(r *Fetch.Response) (*Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling batches: %v", err)
 	}
+	numRecords := 0
+	for _, b := range batches {
+		b.Topic = topicResponse.Topic
+		b.Partition = partitionResponse.Partition
+		numRecords += int(b.NumRecords)
+	}
 	return &Response{
-		ThrottleTimeMs: r.ThrottleTimeMs,
-		Topic:          topicResponse.Topic,
-		Partition:      partitionResponse.Partition,
-		ErrorCode:      partitionResponse.ErrorCode,
-		LogStartOffset: partitionResponse.LogStartOffset,
-		HighWatermark:  partitionResponse.HighWatermark,
-		RecordBatches:  batches,
-		//
-		NumBatches:   len(batches),
-		BatchesBytes: len(partitionResponse.RecordSet),
+		ThrottleTimeMs:     r.ThrottleTimeMs,
+		Topic:              topicResponse.Topic,
+		Partition:          partitionResponse.Partition,
+		ErrorCode:          partitionResponse.ErrorCode,
+		LogStartOffset:     partitionResponse.LogStartOffset,
+		HighWatermark:      partitionResponse.HighWatermark,
+		RecordBatches:      batches,
+		RecordSetSizeBytes: len(partitionResponse.RecordSet),
+		NumRecords:         numRecords,
 	}, err
 }
 
 type Response struct {
-	Topic          string
-	Partition      int32
-	ThrottleTimeMs int32
-	ErrorCode      int16
-	LogStartOffset int64
-	HighWatermark  int64
-	RecordBatches  []*batch.Batch
-	//
-	NumBatches   int
-	BatchesBytes int
-	NumRecords   int
-	RecordsBytes int
+	Topic              string
+	Partition          int32
+	ThrottleTimeMs     int32
+	ErrorCode          int16
+	LogStartOffset     int64
+	HighWatermark      int64
+	RecordBatches      []*batch.Batch
+	RecordSetSizeBytes int
+	NumRecords         int
 }
 
+/*
 func (resp *Response) recordsBytes() ([][]byte, error) {
 	var recordsBytes [][]byte
 	for _, batch := range resp.RecordBatches {
@@ -96,7 +97,7 @@ func (resp *Response) Records() ([]*record.Record, error) {
 	}
 	return records, nil
 }
-
+*/
 type PartitionConsumer struct {
 	sync.Mutex
 	client.PartitionClient
@@ -132,7 +133,7 @@ func fetch(c *client.PartitionClient, offset int64) (*Response, error) {
 	return parseResponse(resp)
 }
 
-func (c *PartitionConsumer) Consume() (*Response, error) {
+func (c *PartitionConsumer) Fetch() (*Response, error) {
 	c.Lock()
 	defer c.Unlock()
 	resp, err := fetch(&(c.PartitionClient), c.Offset)
@@ -140,7 +141,6 @@ func (c *PartitionConsumer) Consume() (*Response, error) {
 		return nil, err
 	}
 	for _, batch := range resp.RecordBatches {
-		resp.NumRecords += int(batch.NumRecords)
 		c.Offset = batch.BaseOffset + int64(batch.LastOffsetDelta) + 1
 	}
 	return resp, nil

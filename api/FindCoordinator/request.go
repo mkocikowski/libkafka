@@ -9,12 +9,12 @@ const (
 	CoordinatorTransaction
 )
 
-func NewRequest(group string) *api.Request {
+func NewRequest(groupId string) *api.Request {
 	return &api.Request{
 		ApiKey:     api.FindCoordinator,
 		ApiVersion: 1,
 		Body: Request{
-			Key:     group,
+			Key:     groupId,
 			KeyType: CoordinatorGroup,
 		},
 	}

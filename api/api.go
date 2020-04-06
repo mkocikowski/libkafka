@@ -2,26 +2,26 @@
 package api
 
 const (
-	Produce                 int16 = 0 // v 5
-	Fetch                         = 1 // v 6
-	ListOffsets                   = 2 // v 2
-	Metadata                      = 3 // v 5
+	Produce                 int16 = 0 // 1_0:5 2_3:7
+	Fetch                         = 1 // 1_0:6
+	ListOffsets                   = 2 // 1_0:2
+	Metadata                      = 3 // 1_0:5
 	LeaderAndIsr                  = 4
 	StopReplica                   = 5
 	UpdateMetadata                = 6
 	ControlledShutdown            = 7
-	OffsetCommit                  = 8  // v 2 implemented, v 3 max for 1.0
-	OffsetFetch                   = 9  // v 3
-	FindCoordinator               = 10 // v 1
-	JoinGroup                     = 11 // v 2 ; v 4 in kafka 2.2 allows to provide member_id for static assignments: https://github.com/apache/kafka/pull/6058/files
-	Heartbeat                     = 12
+	OffsetCommit                  = 8  // 1_0:3
+	OffsetFetch                   = 9  // 1_0:3
+	FindCoordinator               = 10 // 1_0:1
+	JoinGroup                     = 11 // 1_0:2
+	Heartbeat                     = 12 // 1_0:1
 	LeaveGroup                    = 13
-	SyncGroup                     = 14
+	SyncGroup                     = 14 // 1_0:1
 	DescribeGroups                = 15
 	ListGroups                    = 16
 	SaslHandshake                 = 17
-	ApiVersions                   = 18 // v 0 TODO: 1
-	CreateTopics                  = 19 // v 2
+	ApiVersions                   = 18 // 1_0:1
+	CreateTopics                  = 19 // 1_0:2
 	DeleteTopics                  = 20
 	DeleteRecords                 = 21
 	InitProducerId                = 22

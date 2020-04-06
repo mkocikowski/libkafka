@@ -64,3 +64,16 @@ func (r *Response) Leaders(topic string) map[int32]*Broker {
 	}
 	return leaders
 }
+
+func (r *Response) Partitions(topic string) map[int32]*PartitionMetadata {
+	partitions := make(map[int32]*PartitionMetadata)
+	for _, t := range r.TopicMetadata {
+		if t.Topic != topic {
+			continue
+		}
+		for _, p := range t.PartitionMetadata {
+			partitions[p.Partition] = &p
+		}
+	}
+	return partitions
+}

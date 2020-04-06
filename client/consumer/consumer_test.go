@@ -43,7 +43,7 @@ func TestIntergationPartitionConsumer(t *testing.T) {
 			Partition: 0,
 		},
 	}
-	resp, err := c.Consume()
+	resp, err := c.Fetch()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,8 +64,11 @@ func TestIntergationPartitionConsumer(t *testing.T) {
 	if batch.LastOffsetDelta != 1 {
 		t.Fatalf("%+v", batch)
 	}
+	if batch.Topic != topic {
+		t.Fatalf("%+v", batch)
+	}
 	//
-	resp, err = c.Consume()
+	resp, err = c.Fetch()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,7 +82,7 @@ func TestIntergationPartitionConsumer(t *testing.T) {
 	if _, err := p.ProduceStrings(time.Now(), "hello"); err != nil {
 		t.Fatal(err)
 	}
-	resp, err = c.Consume()
+	resp, err = c.Fetch()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -88,5 +91,25 @@ func TestIntergationPartitionConsumer(t *testing.T) {
 	}
 	if c.Offset != 5 {
 		t.Fatalf("%+v", c)
+	}
+	//
+	c.Offset = 10
+	resp, _ = c.Fetch()
+	if resp.ErrorCode != errors.OFFSET_OUT_OF_RANGE {
+		t.Fatalf("%+v", resp)
+	}
+	//
+	if err := c.Seek(MessageNewest); err != nil {
+		t.Fatal(err)
+	}
+	if c.Offset != 5 {
+		t.Fatalf("%+v", c)
+	}
+	resp, _ = c.Fetch()
+	if resp.ErrorCode != errors.NONE {
+		t.Fatalf("%+v", resp)
+	}
+	if len(resp.RecordBatches) != 0 {
+		t.Fatalf("%+v", resp)
 	}
 }

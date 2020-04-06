@@ -4,17 +4,6 @@ import (
 	"github.com/mkocikowski/libkafka/api"
 )
 
-const (
-	Newest = -1
-	Oldest = -2
-)
-
-/*
-func Newest(topic string, partition int32) *api.Request {
-	return New(topic, partition, newest)
-}
-*/
-
 // timestamp is milliseconds since epoch
 func NewRequest(topic string, partition int32, timestamp int64) *api.Request {
 	p := []RequestPartition{{Partition: partition, Timestamp: timestamp}}

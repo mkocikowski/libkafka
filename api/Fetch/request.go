@@ -6,10 +6,9 @@ import (
 
 func NewRequest(topic string, partition int32, offset int64) *api.Request {
 	p := Partition{
-		Partition:          partition,
-		CurrentLeaderEpoch: -1,
-		FetchOffset:        offset,
-		PartitionMaxBytes:  100 << 20,
+		Partition:         partition,
+		FetchOffset:       offset,
+		PartitionMaxBytes: 100 << 20,
 	}
 	t := Topic{
 		Topic:      topic,
@@ -17,31 +16,26 @@ func NewRequest(topic string, partition int32, offset int64) *api.Request {
 	}
 	return &api.Request{
 		ApiKey:        api.Fetch,
-		ApiVersion:    11,
+		ApiVersion:    6,
 		CorrelationId: 0,
 		ClientId:      "",
 		Body: Request{
-			ReplicaId:       -1,
-			MaxWaitTimeMs:   1000,
-			MinBytes:        1 << 20,
-			MaxBytes:        100 << 20,
-			Topics:          []Topic{t},
-			ForgottenTopics: []ForgottenTopic{},
+			ReplicaId:     -1,
+			MaxWaitTimeMs: 1000,
+			MinBytes:      10 << 20,
+			MaxBytes:      100 << 20,
+			Topics:        []Topic{t},
 		},
 	}
 }
 
 type Request struct {
-	ReplicaId       int32
-	MaxWaitTimeMs   int32
-	MinBytes        int32
-	MaxBytes        int32
-	IsolationLevel  int8 // not used
-	SessionId       int32
-	SessionEpoch    int32
-	Topics          []Topic
-	ForgottenTopics []ForgottenTopic
-	RackId          string
+	ReplicaId      int32
+	MaxWaitTimeMs  int32
+	MinBytes       int32
+	MaxBytes       int32
+	IsolationLevel int8 // not used
+	Topics         []Topic
 }
 
 type Topic struct {
@@ -50,14 +44,8 @@ type Topic struct {
 }
 
 type Partition struct {
-	Partition          int32
-	CurrentLeaderEpoch int32
-	FetchOffset        int64
-	LogStartOffset     int64 // not used
-	PartitionMaxBytes  int32
-}
-
-type ForgottenTopic struct {
-	Topic      string
-	Partitions []int32
+	Partition         int32
+	FetchOffset       int64
+	LogStartOffset    int64 // not used
+	PartitionMaxBytes int32
 }

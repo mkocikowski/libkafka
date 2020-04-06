@@ -139,6 +139,8 @@ type Batch struct {
 	NumRecords           int32
 	//
 	MarshaledRecords []byte `wire:"omit"`
+	Topic            string `wire:"omit"`
+	Partition        int32  `wire:"omit"`
 }
 
 func (batch *Batch) CompressionType() int16 {
