@@ -15,7 +15,7 @@ LMAAAFtmH9Ys/////////////8AAAAAAAAAAxAAAAABBG0xABAAAAIBBG0yABAAAAQBBG0zAA==`
 
 func TestUnitUnmarshalRecordSet(t *testing.T) {
 	fixture, _ := base64.StdEncoding.DecodeString(recordBatchFixture)
-	batches := RecordSet(fixture).Unmarshal()
+	batches := RecordSet(fixture).Batches()
 	if n := len(batches); n != 1 {
 		t.Fatal(n)
 	}

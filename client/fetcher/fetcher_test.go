@@ -1,4 +1,4 @@
-package consumer
+package fetcher
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/client"
 	"github.com/mkocikowski/libkafka/client/producer"
 	"github.com/mkocikowski/libkafka/errors"
@@ -16,7 +17,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func TestIntergationPartitionConsumer(t *testing.T) {
+func TestIntergationPartitionFetcher(t *testing.T) {
 	bootstrap := "localhost:9092"
 	topic := fmt.Sprintf("test-%x", rand.Uint32())
 	if _, err := client.CreateTopic(bootstrap, topic, 1, 1); err != nil {
@@ -36,7 +37,7 @@ func TestIntergationPartitionConsumer(t *testing.T) {
 		t.Fatal(err)
 	}
 	//
-	c := &PartitionConsumer{
+	c := &PartitionFetcher{
 		PartitionClient: client.PartitionClient{
 			Bootstrap: bootstrap,
 			Topic:     topic,
@@ -51,28 +52,31 @@ func TestIntergationPartitionConsumer(t *testing.T) {
 	if highWatermark != 4 {
 		t.Fatalf("%+v", resp)
 	}
-	if c.Offset != 4 {
+	if c.Offset != 0 { // offset is not advanced automatically
 		t.Fatalf("%+v", c)
 	}
-	if len(resp.RecordBatches) != 2 {
+	batches := resp.RecordSet.Batches()
+	if len(batches) != 2 {
 		t.Fatalf("%+v", resp)
 	}
-	batch := resp.RecordBatches[1]
-	if batch.BaseOffset != 2 {
-		t.Fatalf("%+v", batch)
+	b, err := batch.Unmarshal(batches[1])
+	if err != nil {
+		t.Fatal(err)
 	}
-	if batch.LastOffsetDelta != 1 {
-		t.Fatalf("%+v", batch)
+	if b.BaseOffset != 2 {
+		t.Fatalf("%+v", b)
 	}
-	if batch.Topic != topic {
-		t.Fatalf("%+v", batch)
+	if b.LastOffsetDelta != 1 {
+		t.Fatalf("%+v", b)
 	}
 	//
+	c.Offset = 4
 	resp, err = c.Fetch()
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(resp.RecordBatches) != 0 {
+	batches = resp.RecordSet.Batches()
+	if len(batches) != 0 {
 		t.Fatalf("%+v", resp)
 	}
 	if resp.ErrorCode != errors.NONE {
@@ -86,11 +90,9 @@ func TestIntergationPartitionConsumer(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(resp.RecordBatches) != 1 {
+	batches = resp.RecordSet.Batches()
+	if len(batches) != 1 {
 		t.Fatalf("%+v", resp)
-	}
-	if c.Offset != 5 {
-		t.Fatalf("%+v", c)
 	}
 	//
 	c.Offset = 10
@@ -109,7 +111,8 @@ func TestIntergationPartitionConsumer(t *testing.T) {
 	if resp.ErrorCode != errors.NONE {
 		t.Fatalf("%+v", resp)
 	}
-	if len(resp.RecordBatches) != 0 {
+	batches = resp.RecordSet.Batches()
+	if len(batches) != 0 {
 		t.Fatalf("%+v", resp)
 	}
 }

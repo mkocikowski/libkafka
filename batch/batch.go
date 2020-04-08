@@ -8,14 +8,13 @@ When producting messages, call NewBuilder, and Add records to it. Call
 Builder.Build and pass the returned Batch to the producer. Set the Builder to
 nil when done with it to release references to added records.
 
-
 Consuming
 
-Cast results of Fetch request to RecordSet and Unmarshal it into batches bytes.
-Unmarshal each batch individually. To get individual records, call
-Batch.Records and then record.Unmarshal. Passing around batches is much more
-efficient than passing individual records, so save record unmarshaling until
-the very end.
+Fetch result (if successful) will contain RecordSet. Call its Batches method to
+get byte slices containing individual batches.  Unmarshal each batch
+individually. To get individual records, call Batch.Records and then
+record.Unmarshal. Passing around batches is much more efficient than passing
+individual records, so save record unmarshaling until the very end.
 */
 package batch
 
@@ -139,8 +138,6 @@ type Batch struct {
 	NumRecords           int32
 	//
 	MarshaledRecords []byte `wire:"omit"`
-	Topic            string `wire:"omit"`
-	Partition        int32  `wire:"omit"`
 }
 
 func (batch *Batch) CompressionType() int16 {
@@ -154,6 +151,10 @@ const (
 
 func (batch *Batch) TimestampType() int16 {
 	return batch.Attributes & 0b1000
+}
+
+func (batch *Batch) LastOffset() int64 {
+	return batch.BaseOffset + int64(batch.LastOffsetDelta)
 }
 
 // Marshal batch. Mutates the Crc.
@@ -203,10 +204,10 @@ func (batch *Batch) Records(d Decompressor) ([][]byte, error) {
 // batch is identical to the record batch.
 type RecordSet []byte
 
-// Unmarshal record set into record batches. Because Kafka limits response byte
-// sizes, the last record batch in the set may be truncated (bytes will be
+// Batches returns the batches in the record set. Because Kafka limits response
+// byte sizes, the last record batch in the set may be truncated (bytes will be
 // missing from the end). In such case the last batch is discarded.
-func (b RecordSet) Unmarshal() [][]byte {
+func (b RecordSet) Batches() [][]byte {
 	var batches [][]byte
 	var offset int64
 	var length int32
