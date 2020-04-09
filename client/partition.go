@@ -82,7 +82,7 @@ func (c *PartitionClient) request(req *api.Request, v interface{}) error {
 // connection. If there is a request in progress blocks until the request
 // completes. API calls can be made after Close (new connection will be
 // opened).
-func (c *PartitionClient) Close() {
+func (c *PartitionClient) Close() (err error) { // implement io.Closer
 	c.Lock()
 	defer c.Unlock()
 	if c.conn == nil {
@@ -90,6 +90,7 @@ func (c *PartitionClient) Close() {
 	}
 	c.conn.Close()
 	c.conn = nil
+	return
 }
 
 func (c *PartitionClient) ListOffsets(offset int64) (*ListOffsets.Response, error) {

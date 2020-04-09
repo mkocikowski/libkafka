@@ -10,6 +10,7 @@ package fetcher
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -49,10 +50,22 @@ type Response struct {
 	RecordSet      batch.RecordSet
 }
 
+type Fetcher interface {
+	Fetch() (*Response, error)
+	Seeker
+	io.Closer
+}
+
+type Seeker interface {
+	Seek(time.Time) error
+	Offset() int64
+	SetOffset(int64)
+}
+
 type PartitionFetcher struct {
 	sync.Mutex
 	client.PartitionClient
-	Offset int64
+	offset int64
 }
 
 var (
@@ -61,6 +74,8 @@ var (
 )
 
 func (c *PartitionFetcher) Seek(offset time.Time) error {
+	c.Lock()
+	defer c.Unlock()
 	o := offset.UnixNano() / int64(time.Millisecond)
 	resp, err := c.PartitionClient.ListOffsets(o)
 	if err != nil {
@@ -70,15 +85,19 @@ func (c *PartitionFetcher) Seek(offset time.Time) error {
 	if p.ErrorCode != errors.NONE {
 		return &errors.KafkaError{Code: p.ErrorCode}
 	}
-	c.Lock()
-	c.Offset = p.Offset
-	c.Unlock()
+	c.offset = p.Offset
 	return nil
+}
+
+func (c *PartitionFetcher) Offset() int64 {
+	c.Lock()
+	defer c.Unlock()
+	return c.offset
 }
 
 func (c *PartitionFetcher) SetOffset(offset int64) {
 	c.Lock()
-	c.Offset = offset
+	c.offset = offset
 	c.Unlock()
 }
 
@@ -93,7 +112,7 @@ func fetch(c *client.PartitionClient, offset int64) (*Response, error) {
 func (c *PartitionFetcher) Fetch() (*Response, error) {
 	c.Lock()
 	defer c.Unlock()
-	resp, err := fetch(&(c.PartitionClient), c.Offset)
+	resp, err := fetch(&(c.PartitionClient), c.offset)
 	if err != nil {
 		return nil, err
 	}
