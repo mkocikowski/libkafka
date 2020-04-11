@@ -4,26 +4,36 @@ import (
 	"github.com/mkocikowski/libkafka/api"
 )
 
-func NewRequest(topic string, partition int32, offset int64) *api.Request {
+type Args struct {
+	ClientId      string
+	Topic         string
+	Partition     int32
+	Offset        int64
+	MinBytes      int32
+	MaxBytes      int32
+	MaxWaitTimeMs int32
+}
+
+func NewRequest(args *Args) *api.Request {
 	p := Partition{
-		Partition:         partition,
-		FetchOffset:       offset,
-		PartitionMaxBytes: 100 << 20,
+		Partition:         args.Partition,
+		FetchOffset:       args.Offset,
+		PartitionMaxBytes: args.MaxBytes,
 	}
 	t := Topic{
-		Topic:      topic,
+		Topic:      args.Topic,
 		Partitions: []Partition{p, p},
 	}
 	return &api.Request{
 		ApiKey:        api.Fetch,
 		ApiVersion:    6,
 		CorrelationId: 0,
-		ClientId:      "",
+		ClientId:      args.ClientId,
 		Body: Request{
 			ReplicaId:     -1,
-			MaxWaitTimeMs: 1000,
-			MinBytes:      10 << 20,
-			MaxBytes:      100 << 20,
+			MaxWaitTimeMs: args.MaxWaitTimeMs,
+			MinBytes:      args.MinBytes,
+			MaxBytes:      args.MaxBytes,
 			Topics:        []Topic{t},
 		},
 	}

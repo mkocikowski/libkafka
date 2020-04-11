@@ -1,6 +1,7 @@
 package batch
 
 import (
+	"bytes"
 	"encoding/base64"
 	"testing"
 	"time"
@@ -25,6 +26,22 @@ func TestUnitUnmarshalRecordSet(t *testing.T) {
 	}
 	if batch.Crc != 1911657255 {
 		t.Fatal(batch.Crc)
+	}
+}
+
+func TestUnitUnmarshalRecordSetIdempotent(t *testing.T) {
+	fixture, _ := base64.StdEncoding.DecodeString(recordBatchFixture)
+	b := RecordSet(fixture).Batches()
+	if n := len(b); n != 1 {
+		t.Fatal(n)
+	}
+	// verify that serialized batch is the same as RecordSet
+	c := RecordSet(b[0]).Batches()
+	if n := len(c); n != 1 {
+		t.Fatal(n)
+	}
+	if !bytes.Equal(b[0], c[0]) {
+		t.Fatal(b, c)
 	}
 }
 

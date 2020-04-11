@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkocikowski/libkafka/api/Produce"
 	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/client"
 	"github.com/mkocikowski/libkafka/compression"
@@ -29,6 +30,8 @@ func TestIntergationPartitionProducer(t *testing.T) {
 			Topic:     topic,
 			Partition: 0,
 		},
+		Acks:      1,
+		TimeoutMs: 1000,
 	}
 	if _, err := p.ProduceStrings(time.Now(), "foo", "bar"); err != nil {
 		t.Fatal(err)
@@ -61,6 +64,8 @@ func TestIntergationPartitionProducerSingleBatch(t *testing.T) {
 			Topic:     topic,
 			Partition: 0,
 		},
+		Acks:      1,
+		TimeoutMs: 1000,
 	}
 	now := time.Unix(1584485804, 0)
 	b, _ := batch.NewBuilder(now).AddStrings("foo", "bar").Build(now, &compression.Nop{})
@@ -78,6 +83,15 @@ func TestIntergationPartitionProducerSingleBatch(t *testing.T) {
 		t.Fatal(b.Crc)
 	}
 	t.Logf("%+v", resp)
+	//
+	p.Acks = 2
+	resp, err = p.Produce(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.ErrorCode != errors.INVALID_REQUIRED_ACKS {
+		t.Fatalf("%+v", resp)
+	}
 }
 
 func TestIntergationPartitionProducerBadTopic(t *testing.T) {
@@ -111,7 +125,14 @@ func TestIntergationPartitionProducerCorruptBytes(t *testing.T) {
 	b, _ := batch.NewBuilder(now).AddStrings("foo", "bar").Build(now, &compression.Nop{})
 	corrupted := b.Marshal()
 	corrupted[len(corrupted)-1] = math.MaxUint8 - corrupted[len(corrupted)-1]
-	resp, err := p.PartitionClient.Produce(corrupted)
+	// calling PartitionClient.Produce and not just Produce so that batch is not re-marshaled
+	args := &Produce.Args{
+		Topic:     topic,
+		Partition: 0,
+		Acks:      1,
+		TimeoutMs: 1000,
+	}
+	resp, err := p.PartitionClient.Produce(args, corrupted)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -34,6 +34,8 @@ func TestIntergationPartitionFetcher(t *testing.T) {
 			Topic:     topic,
 			Partition: 0,
 		},
+		Acks:      1,
+		TimeoutMs: 1000,
 	}
 	if _, err := p.ProduceStrings(time.Now(), "foo", "bar"); err != nil {
 		t.Fatal(err)
@@ -48,6 +50,9 @@ func TestIntergationPartitionFetcher(t *testing.T) {
 			Topic:     topic,
 			Partition: 0,
 		},
+		MinBytes:      10 << 10,
+		MaxBytes:      10 << 20,
+		MaxWaitTimeMs: 1000,
 	}
 	resp, err := c.Fetch()
 	if err != nil {

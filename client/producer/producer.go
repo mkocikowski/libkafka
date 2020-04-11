@@ -43,6 +43,8 @@ type Response struct {
 
 type PartitionProducer struct {
 	client.PartitionClient
+	Acks      int16 // 0: no, 1: leader only, -1: all ISRs (as specified by min.insync.replicas)
+	TimeoutMs int32
 }
 
 // ProduceStrings with Nop compression.
@@ -61,7 +63,15 @@ func (p *PartitionProducer) ProduceStrings(now time.Time, values ...string) (*Re
 // returns an error. This can happen when the connection is interrupted while
 // the client is reading the response. This is an edge case but possible.
 func (p *PartitionProducer) Produce(b *batch.Batch) (*Response, error) {
-	resp, err := p.PartitionClient.Produce(b.Marshal())
+	args := &Produce.Args{
+		ClientId:  p.ClientId,
+		Topic:     p.Topic,
+		Partition: p.Partition,
+		Acks:      p.Acks,
+		TimeoutMs: p.TimeoutMs,
+	}
+	recordSet := b.Marshal()
+	resp, err := p.PartitionClient.Produce(args, recordSet)
 	if err != nil {
 		return nil, err
 	}

@@ -159,7 +159,7 @@ func (batch *Batch) LastOffset() int64 {
 }
 
 // Marshal batch. Mutates the Crc.
-func (batch *Batch) Marshal() []byte {
+func (batch *Batch) Marshal() RecordSet {
 	buf := new(bytes.Buffer)
 	if err := wire.Write(buf, reflect.ValueOf(batch)); err != nil {
 		panic(err)

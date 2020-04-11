@@ -66,6 +66,10 @@ type PartitionFetcher struct {
 	sync.Mutex
 	client.PartitionClient
 	offset int64
+	//
+	MinBytes      int32
+	MaxBytes      int32
+	MaxWaitTimeMs int32
 }
 
 var (
@@ -101,8 +105,8 @@ func (c *PartitionFetcher) SetOffset(offset int64) {
 	c.Unlock()
 }
 
-func fetch(c *client.PartitionClient, offset int64) (*Response, error) {
-	resp, err := c.Fetch(offset)
+func fetch(c *client.PartitionClient, args *Fetch.Args) (*Response, error) {
+	resp, err := c.Fetch(args)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +116,16 @@ func fetch(c *client.PartitionClient, offset int64) (*Response, error) {
 func (c *PartitionFetcher) Fetch() (*Response, error) {
 	c.Lock()
 	defer c.Unlock()
-	resp, err := fetch(&(c.PartitionClient), c.offset)
+	args := &Fetch.Args{
+		ClientId:      c.ClientId,
+		Topic:         c.Topic,
+		Partition:     c.Partition,
+		Offset:        c.offset,
+		MinBytes:      c.MinBytes,
+		MaxBytes:      c.MaxBytes,
+		MaxWaitTimeMs: c.MaxWaitTimeMs,
+	}
+	resp, err := fetch(&(c.PartitionClient), args)
 	if err != nil {
 		return nil, err
 	}

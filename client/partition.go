@@ -32,6 +32,7 @@ All PartitionClient calls are safe for concurrent use.
 type PartitionClient struct {
 	sync.Mutex
 	Bootstrap string // srv or host:port
+	ClientId  string
 	Topic     string
 	Partition int32
 	leader    *Metadata.Broker
@@ -99,14 +100,14 @@ func (c *PartitionClient) ListOffsets(offset int64) (*ListOffsets.Response, erro
 	return resp, c.request(req, resp)
 }
 
-func (c *PartitionClient) Fetch(offset int64) (*Fetch.Response, error) {
-	req := Fetch.NewRequest(c.Topic, c.Partition, int64(offset))
+func (c *PartitionClient) Fetch(args *Fetch.Args) (*Fetch.Response, error) {
+	req := Fetch.NewRequest(args)
 	resp := &Fetch.Response{}
 	return resp, c.request(req, resp)
 }
 
-func (c *PartitionClient) Produce(batch []byte) (*Produce.Response, error) {
-	req := Produce.NewRequest(c.Topic, c.Partition, batch)
+func (c *PartitionClient) Produce(args *Produce.Args, recordSet []byte) (*Produce.Response, error) {
+	req := Produce.NewRequest(args, recordSet)
 	resp := &Produce.Response{}
 	return resp, c.request(req, resp)
 }
