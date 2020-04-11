@@ -93,6 +93,7 @@ func (b *Builder) Build(now time.Time, c Compressor) (*Batch, error) {
 		Magic:            2,
 		Attributes:       c.Type(),
 		LastOffsetDelta:  int32(len(b.records) - 1),
+		// TODO: base timestamps on record timestamps
 		FirstTimestamp:   b.t.UnixNano() / int64(time.Millisecond),
 		MaxTimestamp:     now.UnixNano() / int64(time.Millisecond),
 		ProducerId:       -1,
@@ -137,7 +138,7 @@ type Batch struct {
 	BaseSequence         int32
 	NumRecords           int32
 	//
-	MarshaledRecords []byte `wire:"omit"`
+	MarshaledRecords []byte `wire:"omit" json:"-"`
 }
 
 func (batch *Batch) CompressionType() int16 {
