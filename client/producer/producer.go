@@ -8,7 +8,6 @@ import (
 	"github.com/mkocikowski/libkafka/api/Produce"
 	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/client"
-	"github.com/mkocikowski/libkafka/compression"
 )
 
 func parseResponse(r *Produce.Response) (*Response, error) {
@@ -49,7 +48,7 @@ type PartitionProducer struct {
 
 // ProduceStrings with Nop compression.
 func (p *PartitionProducer) ProduceStrings(now time.Time, values ...string) (*Response, error) {
-	b, err := batch.NewBuilder(now).AddStrings(values...).Build(now, &compression.Nop{})
+	b, err := batch.NewBuilder(now).AddStrings(values...).Build(now)
 	if err != nil {
 		return nil, err
 	}

@@ -54,7 +54,7 @@ func TestUnitUnmarshalBatchFixture(t *testing.T) {
 	if batch.Crc != 1911657255 {
 		t.Fatal(batch.Crc)
 	}
-	records, _ := batch.Records(&compression.Nop{})
+	records := batch.Records()
 	if len(records) != 3 {
 		t.Fatal(len(records))
 	}
@@ -66,16 +66,13 @@ func TestUnitUnmarshalBatchFixture(t *testing.T) {
 
 func TestUnitMarshalBatch(t *testing.T) {
 	now := time.Now()
-	batch, _ := NewBuilder(now).AddStrings("m1", "m2", "m3").Build(now, &compression.Nop{})
+	batch, _ := NewBuilder(now).AddStrings("m1", "m2", "m3").Build(now)
 	b := batch.Marshal()
 	batch, err := Unmarshal(b)
 	if err != nil {
 		t.Fatal(err)
 	}
-	records, err := batch.Records(&compression.Nop{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	records := batch.Records()
 	r, _ := record.Unmarshal(records[2])
 	if string(r.Value) != "m3" {
 		t.Fatal(string(r.Value))
@@ -92,28 +89,19 @@ func TestUnitNumRecords(t *testing.T) {
 	if builder.NumRecords() != 1 {
 		t.Fatal(builder.NumRecords())
 	}
-	batch, _ := builder.Build(now, &nopZstd{})
+	batch, _ := builder.Build(now)
 	if batch.NumRecords != 1 {
 		t.Fatal(batch.NumRecords)
 	}
 }
 
-type nopZstd struct{}
-
-func (*nopZstd) Compress(b []byte) ([]byte, error)   { return b, nil }
-func (*nopZstd) Decompress(b []byte) ([]byte, error) { return b, nil }
-func (*nopZstd) Type() int16                         { return compression.Zstd }
-
 func TestUnitBuild(t *testing.T) {
 	now := time.Now()
-	batch, _ := NewBuilder(now).AddStrings("m1", "m2", "m3").Build(now, &nopZstd{})
-	if typ := batch.CompressionType(); typ != compression.Zstd {
+	batch, _ := NewBuilder(now).AddStrings("m1", "m2", "m3").Build(now)
+	if typ := batch.CompressionType(); typ != compression.None {
 		t.Fatal(typ)
 	}
-	records, err := batch.Records(&nopZstd{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	records := batch.Records()
 	r, _ := record.Unmarshal(records[2])
 	if string(r.Value) != "m3" {
 		t.Fatal(string(r.Value))
@@ -123,7 +111,7 @@ func TestUnitBuild(t *testing.T) {
 
 func TestUnitBuildEmptyBatch(t *testing.T) {
 	now := time.Now()
-	batch, err := NewBuilder(now).Build(now, &nopZstd{})
+	batch, err := NewBuilder(now).Build(now)
 	if err != ErrEmpty {
 		t.Fatal(batch, err)
 	}
@@ -134,7 +122,7 @@ const recordBodiesFixture = `EAAAAAEEbTEAEAAAAgEEbTIAEAAABAEEbTMA`
 func TestUnitRecords(t *testing.T) {
 	fixture, _ := base64.StdEncoding.DecodeString(recordBodiesFixture)
 	batch := &Batch{MarshaledRecords: fixture}
-	br, _ := batch.Records(&compression.Nop{})
+	br := batch.Records()
 	if len(br) != 3 {
 		t.Fatal(len(br))
 	}

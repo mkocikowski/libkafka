@@ -10,7 +10,6 @@ import (
 	"github.com/mkocikowski/libkafka/api/Produce"
 	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/client"
-	"github.com/mkocikowski/libkafka/compression"
 	"github.com/mkocikowski/libkafka/errors"
 )
 
@@ -68,7 +67,7 @@ func TestIntergationPartitionProducerSingleBatch(t *testing.T) {
 		TimeoutMs: 1000,
 	}
 	now := time.Unix(1584485804, 0)
-	b, _ := batch.NewBuilder(now).AddStrings("foo", "bar").Build(now, &compression.Nop{})
+	b, _ := batch.NewBuilder(now).AddStrings("foo", "bar").Build(now)
 	if b.Crc != 0 {
 		t.Fatal(b.Crc)
 	}
@@ -122,7 +121,7 @@ func TestIntergationPartitionProducerCorruptBytes(t *testing.T) {
 		},
 	}
 	now := time.Unix(1584485804, 0)
-	b, _ := batch.NewBuilder(now).AddStrings("foo", "bar").Build(now, &compression.Nop{})
+	b, _ := batch.NewBuilder(now).AddStrings("foo", "bar").Build(now)
 	corrupted := b.Marshal()
 	corrupted[len(corrupted)-1] = math.MaxUint8 - corrupted[len(corrupted)-1]
 	// calling PartitionClient.Produce and not just Produce so that batch is not re-marshaled

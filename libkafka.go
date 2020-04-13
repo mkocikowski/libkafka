@@ -59,3 +59,6 @@ func NewRecord(key, value []byte) *Record {
 type Record = record.Record
 
 type Batch = batch.Batch
+
+type Compressor = batch.Compressor
+type Decompressor = batch.Decompressor

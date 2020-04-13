@@ -27,10 +27,21 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/mkocikowski/libkafka/compression"
 	"github.com/mkocikowski/libkafka/record"
 	"github.com/mkocikowski/libkafka/varint"
 	"github.com/mkocikowski/libkafka/wire"
 )
+
+type Compressor interface {
+	Compress([]byte) ([]byte, error)
+	Type() int16
+}
+
+type Decompressor interface {
+	Decompress([]byte) ([]byte, error)
+	Type() int16
+}
 
 func NewBuilder(now time.Time) *Builder {
 	return &Builder{t: now}
@@ -61,21 +72,11 @@ func (b *Builder) NumRecords() int {
 	return len(b.records)
 }
 
-// Compressor implementations are supplied to the Builder by the user. This
-// gives the user flexibility (say in picking zstd Data Dog or Klaus Post
-// implementations).
-type Compressor interface {
-	Compress([]byte) ([]byte, error)
-	Type() int16
-}
-
 var ErrEmpty = errors.New("empty batch")
 
-// Build a record batch. Call this after adding records to the batch.
-// Serializes and compresses records. Does not set the Crc (this is done by
-// Batch.Marshal). Returns ErrEmpty if batch has no records. Build is
-// idempotent.
-func (b *Builder) Build(now time.Time, c Compressor) (*Batch, error) {
+// Build a record batch (marshal individual records). Call this after adding
+// records to the batch. Returns ErrEmpty if batch has no records. Idempotent.
+func (b *Builder) Build(now time.Time) (*Batch, error) {
 	if len(b.records) == 0 {
 		return nil, ErrEmpty
 	}
@@ -84,14 +85,11 @@ func (b *Builder) Build(now time.Time, c Compressor) (*Batch, error) {
 		r.OffsetDelta = int64(i)
 		buf.Write(r.Marshal())
 	}
-	marshaledRecords, err := c.Compress(buf.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("error compressing batch records: %v", err)
-	}
+	marshaledRecords := buf.Bytes()
 	return &Batch{
 		BatchLengthBytes: int32(49 + len(marshaledRecords)), // TODO: constant
 		Magic:            2,
-		Attributes:       c.Type(),
+		Attributes:       compression.None,
 		LastOffsetDelta:  int32(len(b.records) - 1),
 		// TODO: base timestamps on record timestamps
 		FirstTimestamp:   b.t.UnixNano() / int64(time.Millisecond),
@@ -158,7 +156,8 @@ func (batch *Batch) LastOffset() int64 {
 	return batch.BaseOffset + int64(batch.LastOffsetDelta)
 }
 
-// Marshal batch. Mutates the Crc.
+// Marshal batch header and append marshaled records. If you want the batch to
+// be compressed call Compress before Marshal. Mutates the batch Crc.
 func (batch *Batch) Marshal() RecordSet {
 	buf := new(bytes.Buffer)
 	if err := wire.Write(buf, reflect.ValueOf(batch)); err != nil {
@@ -173,31 +172,45 @@ func (batch *Batch) Marshal() RecordSet {
 	return b
 }
 
-// Ditto Compressor.
-type Decompressor interface {
-	Decompress([]byte) ([]byte, error)
-	Type() int16
+// Compress batch records with supplied compressor. Mutates batch. Call before
+// Marshal. Not idempotent.
+func (batch *Batch) Compress(c Compressor) error {
+	b, err := c.Compress(batch.MarshaledRecords)
+	if err != nil {
+		return fmt.Errorf("error compressing batch records: %w", err)
+	}
+	batch.BatchLengthBytes = int32(49 + len(b)) // TODO: constant
+	batch.Attributes = c.Type()
+	batch.Crc = 0 // invalidate crc
+	batch.MarshaledRecords = b
+	return nil
 }
 
-// Records returns byte slices containing decompressed records. It is up to the
-// user to provide appropriate Decompressor based on the value of
-// Batch.CompressionType.
-func (batch *Batch) Records(d Decompressor) ([][]byte, error) {
-	var records [][]byte
+// Decompress batch with supplied decompressor. Mutates batch. Call after
+// Unmarshal and before Records. Not idempotent.
+func (batch *Batch) Decompress(d Decompressor) error {
 	b, err := d.Decompress(batch.MarshaledRecords)
 	if err != nil {
-		return nil, fmt.Errorf("error decompressing record batch: %v", err)
+		return fmt.Errorf("error decompressing record batch: %w", err)
 	}
-	for {
-		if len(b) == 0 {
-			break
-		}
+	batch.BatchLengthBytes = int32(49 + len(b)) // TODO: constant
+	batch.Attributes = compression.None
+	batch.Crc = 0 // invalidate crc
+	batch.MarshaledRecords = b
+	return nil
+}
+
+// Records retrieves individual records from the batch. If batch records are
+// compressed you must call Decompress first.
+func (batch *Batch) Records() [][]byte {
+	var records [][]byte
+	for b := batch.MarshaledRecords; len(b) > 0; {
 		length, n := varint.DecodeZigZag64(b)
 		n += int(length)
 		records = append(records, b[0:n])
 		b = b[n:]
 	}
-	return records, nil
+	return records
 }
 
 // RecordSet is composed of 1 or more record batches. Fetch API calls respond
