@@ -54,7 +54,7 @@ type Builder struct {
 	records []*record.Record
 }
 
-// Add record to the batch. References to added records are not released on
+// Add records to the batch. References to added records are not released on
 // call to Build.
 func (b *Builder) Add(records ...*record.Record) {
 	b.records = append(b.records, records...)
@@ -74,8 +74,10 @@ func (b *Builder) NumRecords() int {
 
 var ErrEmpty = errors.New("empty batch")
 
-// Build a record batch (marshal individual records). Call this after adding
-// records to the batch. Returns ErrEmpty if batch has no records. Idempotent.
+// Build a record batch (marshal individual records and set batch metadata).
+// Call this after adding records to the batch. Returns ErrEmpty if batch has
+// no records. Marshaled records are not compressed (call Batch.Compress).
+// Idempotent.
 func (b *Builder) Build(now time.Time) (*Batch, error) {
 	if len(b.records) == 0 {
 		return nil, ErrEmpty
