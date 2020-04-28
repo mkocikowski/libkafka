@@ -62,6 +62,11 @@ type Seeker interface {
 	SetOffset(int64)
 }
 
+type SeekCloser interface {
+	Seeker
+	io.Closer
+}
+
 type PartitionFetcher struct {
 	sync.Mutex
 	client.PartitionClient
