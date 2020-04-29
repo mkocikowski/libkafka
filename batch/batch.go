@@ -180,8 +180,8 @@ func (batch *Batch) Marshal() RecordSet {
 	return b
 }
 
-// Compress batch records with supplied compressor. Mutates batch. Call before
-// Marshal. Not idempotent.
+// Compress batch records with supplied compressor. Mutates batch on success
+// only. Call before Marshal. Not idempotent (on success).
 func (batch *Batch) Compress(c Compressor) error {
 	b, err := c.Compress(batch.MarshaledRecords)
 	if err != nil {
