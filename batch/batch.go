@@ -72,18 +72,24 @@ func (b *Builder) NumRecords() int {
 	return len(b.records)
 }
 
-var ErrEmpty = errors.New("empty batch")
+var (
+	ErrEmpty     = errors.New("empty batch")
+	ErrNilRecord = errors.New("nil record in batch")
+)
 
 // Build a record batch (marshal individual records and set batch metadata).
 // Call this after adding records to the batch. Returns ErrEmpty if batch has
-// no records. Marshaled records are not compressed (call Batch.Compress).
-// Idempotent.
+// no records. Returns ErrNilRecord if any of the records is nil. Marshaled
+// records are not compressed (call Batch.Compress). Idempotent.
 func (b *Builder) Build(now time.Time) (*Batch, error) {
 	if len(b.records) == 0 {
 		return nil, ErrEmpty
 	}
 	buf := new(bytes.Buffer)
 	for i, r := range b.records {
+		if r == nil {
+			return nil, ErrNilRecord
+		}
 		r.OffsetDelta = int64(i)
 		buf.Write(r.Marshal())
 	}

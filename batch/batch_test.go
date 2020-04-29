@@ -117,6 +117,16 @@ func TestUnitBuildEmptyBatch(t *testing.T) {
 	}
 }
 
+func TestUnitBuildBatchiNilRecord(t *testing.T) {
+	now := time.Now()
+	builder := NewBuilder(now).AddStrings("foo")
+	builder.Add(nil)
+	batch, err := builder.Build(now)
+	if err != ErrNilRecord {
+		t.Fatal(batch, err)
+	}
+}
+
 const recordBodiesFixture = `EAAAAAEEbTEAEAAAAgEEbTIAEAAABAEEbTMA`
 
 func TestUnitRecords(t *testing.T) {
