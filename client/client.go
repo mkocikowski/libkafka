@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/mkocikowski/libkafka/api"
 	"github.com/mkocikowski/libkafka/api/ApiVersions"
@@ -20,7 +21,8 @@ import (
 	"github.com/mkocikowski/libkafka/api/Metadata"
 )
 
-// LookupSrv and return unordered list of resolved host:port strings.
+// LookupSrv returns a list of host:port strings in the order returned by the
+// srv lookup call.
 func LookupSrv(name string) ([]string, error) {
 	_, srvs, err := net.LookupSRV("", "", name)
 	if err != nil {
@@ -51,57 +53,51 @@ func RandomBroker(name string) string {
 	return addrs[0]
 }
 
-// TODO: timeouts
-func call(conn io.ReadWriter, req *api.Request) (*api.Response, error) {
-	out := bufio.NewWriter(conn)
-	if _, err := out.Write(req.Bytes()); err != nil {
-		return nil, err
-	}
-	if err := out.Flush(); err != nil {
-		return nil, err
-	}
-	in := bufio.NewReader(conn)
-	return api.Read(in)
+func connect(bootstrap string) (net.Conn, error) {
+	return net.DialTimeout("tcp", RandomBroker(bootstrap), time.Second)
 }
 
-func request(bootstrap string, req *api.Request, v interface{}) error {
-	conn, err := net.Dial("tcp", RandomBroker(bootstrap))
-	if err != nil {
-		return fmt.Errorf("error connecting to broker: %v", err)
+func call(conn io.ReadWriter, req *api.Request, v interface{}) error {
+	out := bufio.NewWriter(conn)
+	if _, err := out.Write(req.Bytes()); err != nil {
+		return fmt.Errorf("error sending %T request: %w", req.Body, err)
 	}
-	defer conn.Close()
-	resp, err := call(conn, req)
+	if err := out.Flush(); err != nil {
+		return fmt.Errorf("error finalizing %T request: %w", req.Body, err)
+	}
+	resp, err := api.Read(bufio.NewReader(conn))
 	if err != nil {
-		return fmt.Errorf("error making api call: %v", err)
+		return fmt.Errorf("error reading %T response: %w", req.Body, err)
 	}
 	if err := resp.Unmarshal(v); err != nil {
-		return fmt.Errorf("error parsing api response: %v", err)
+		return fmt.Errorf("error unmarshaling %T response: %w", req.Body, err)
 	}
 	return nil
 }
 
-func GetPartitionLeaders(bootstrap, topic string) (map[int32]*Metadata.Broker, error) {
-	v, err := GetMetadata(bootstrap, []string{topic})
+func connectAndCall(bootstrap string, req *api.Request, v interface{}) error {
+	conn, err := connect(bootstrap)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return v.Leaders(topic), nil
+	defer conn.Close()
+	return call(conn, req, v)
 }
 
-func GetApiVersions(bootstrap string) (*ApiVersions.Response, error) {
+func CallApiVersions(bootstrap string) (*ApiVersions.Response, error) {
 	req := ApiVersions.NewRequest()
 	resp := &ApiVersions.Response{}
-	return resp, request(bootstrap, req, resp)
+	return resp, connectAndCall(bootstrap, req, resp)
 }
 
-func GetMetadata(bootstrap string, topics []string) (*Metadata.Response, error) {
+func CallMetadata(bootstrap string, topics []string) (*Metadata.Response, error) {
 	req := Metadata.NewRequest(topics)
 	resp := &Metadata.Response{}
-	return resp, request(bootstrap, req, resp)
+	return resp, connectAndCall(bootstrap, req, resp)
 }
 
-func CreateTopic(bootstrap, topic string, numPartitions int32, replicationFactor int16) (*CreateTopics.Response, error) {
+func CallCreateTopic(bootstrap, topic string, numPartitions int32, replicationFactor int16) (*CreateTopics.Response, error) {
 	req := CreateTopics.NewRequest(topic, numPartitions, replicationFactor, []CreateTopics.Config{})
 	resp := &CreateTopics.Response{}
-	return resp, request(bootstrap, req, resp)
+	return resp, connectAndCall(bootstrap, req, resp)
 }

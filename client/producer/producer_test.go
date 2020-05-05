@@ -20,7 +20,7 @@ func init() {
 func TestIntergationPartitionProducer(t *testing.T) {
 	bootstrap := "localhost:9092"
 	topic := fmt.Sprintf("test-%x", rand.Uint32())
-	if _, err := client.CreateTopic(bootstrap, topic, 1, 1); err != nil {
+	if _, err := client.CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	p := &PartitionProducer{
@@ -54,7 +54,7 @@ func TestIntergationPartitionProducer(t *testing.T) {
 func TestIntergationPartitionProducerSingleBatch(t *testing.T) {
 	bootstrap := "localhost:9092"
 	topic := fmt.Sprintf("test-%x", rand.Uint32())
-	if _, err := client.CreateTopic(bootstrap, topic, 1, 1); err != nil {
+	if _, err := client.CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	p := &PartitionProducer{
@@ -110,7 +110,7 @@ func TestIntergationPartitionProducerBadTopic(t *testing.T) {
 func TestIntergationPartitionProducerCorruptBytes(t *testing.T) {
 	bootstrap := "localhost:9092"
 	topic := fmt.Sprintf("test-%x", rand.Uint32())
-	if _, err := client.CreateTopic(bootstrap, topic, 1, 1); err != nil {
+	if _, err := client.CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	p := &PartitionProducer{

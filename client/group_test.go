@@ -122,7 +122,7 @@ func TestIntegrationGroupOffsets(t *testing.T) {
 		t.Fatal(err)
 	}
 	//
-	if _, err = CreateTopic(bootstrap, topic, 1, 1); err != nil {
+	if _, err = CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	// get offset for existing topic but where no offset has been committed

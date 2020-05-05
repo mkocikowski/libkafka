@@ -20,7 +20,18 @@ import (
 func CallFindCoordinator(bootstrap, groupId string) (*FindCoordinator.Response, error) {
 	req := FindCoordinator.NewRequest(groupId)
 	resp := &FindCoordinator.Response{}
-	return resp, request(bootstrap, req, resp)
+	return resp, connectAndCall(bootstrap, req, resp)
+}
+
+func GetGroupCoordinator(bootstrap, groupId string) (string, error) {
+	resp, err := CallFindCoordinator(bootstrap, groupId)
+	if err != nil {
+		return "", fmt.Errorf("error making FindCoordinator call: %w", err)
+	}
+	if resp.ErrorCode != 0 {
+		return "", fmt.Errorf("error response from FindCoordinator call: %w", &errors.KafkaError{Code: resp.ErrorCode})
+	}
+	return net.JoinHostPort(resp.Host, strconv.Itoa(int(resp.Port))), nil
 }
 
 // https://cwiki.apache.org/confluence/display/KAFKA/Kafka+Client-side+Assignment+Proposal
@@ -36,18 +47,23 @@ func (c *GroupClient) connect() error {
 	if c.conn != nil {
 		return nil
 	}
-	resp, err := CallFindCoordinator(c.Bootstrap, c.GroupId)
+	addr, err := GetGroupCoordinator(c.Bootstrap, c.GroupId)
 	if err != nil {
-		return fmt.Errorf("error making FindCoordinator call: %w", err)
+		return err
 	}
-	if resp.ErrorCode != 0 {
-		return fmt.Errorf("error response from FindCoordinator call: %w", &errors.KafkaError{Code: resp.ErrorCode})
-	}
-	addr := net.JoinHostPort(resp.Host, strconv.Itoa(int(resp.Port)))
 	c.conn, err = net.DialTimeout("tcp", addr, time.Second)
 	if err != nil {
-		return fmt.Errorf("error connecting to the coordinator: %w", err)
+		return fmt.Errorf("error connecting to group coordinator: %w", err)
 	}
+	return nil
+}
+
+func (c *GroupClient) disconnect() error {
+	if c.conn == nil {
+		return nil
+	}
+	c.conn.Close()
+	c.conn = nil
 	return nil
 }
 
@@ -57,18 +73,11 @@ func (c *GroupClient) request(req *api.Request, v interface{}) error {
 	if err := c.connect(); err != nil {
 		return err
 	}
-	resp, err := call(c.conn, req)
+	err := call(c.conn, req, v)
 	if err != nil {
-		c.conn.Close()
-		c.conn = nil
-		return err
+		c.disconnect()
 	}
-	if err := resp.Unmarshal(v); err != nil {
-		c.conn.Close()
-		c.conn = nil
-		return err
-	}
-	return nil
+	return err
 }
 
 func (c *GroupClient) callJoin(memberId, protoType string, protocols []JoinGroup.Protocol) (*JoinGroup.Response, error) {
