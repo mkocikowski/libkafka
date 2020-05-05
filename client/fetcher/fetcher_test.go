@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/client"
 	"github.com/mkocikowski/libkafka/client/producer"
-	"github.com/mkocikowski/libkafka/errors"
 )
 
 func init() {
@@ -89,7 +89,7 @@ func TestIntergationPartitionFetcher(t *testing.T) {
 	if len(batches) != 0 {
 		t.Fatalf("%+v", resp)
 	}
-	if resp.ErrorCode != errors.NONE {
+	if resp.ErrorCode != libkafka.ERR_NONE {
 		t.Fatalf("%+v", resp)
 	}
 	//
@@ -107,7 +107,7 @@ func TestIntergationPartitionFetcher(t *testing.T) {
 	//
 	c.offset = 10
 	resp, _ = c.Fetch()
-	if resp.ErrorCode != errors.OFFSET_OUT_OF_RANGE {
+	if resp.ErrorCode != libkafka.ERR_OFFSET_OUT_OF_RANGE {
 		t.Fatalf("%+v", resp)
 	}
 	//
@@ -118,7 +118,7 @@ func TestIntergationPartitionFetcher(t *testing.T) {
 		t.Fatalf("%+v", c)
 	}
 	resp, _ = c.Fetch()
-	if resp.ErrorCode != errors.NONE {
+	if resp.ErrorCode != libkafka.ERR_NONE {
 		t.Fatalf("%+v", resp)
 	}
 	batches = resp.RecordSet.Batches()

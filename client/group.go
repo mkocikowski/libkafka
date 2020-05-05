@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api"
 	"github.com/mkocikowski/libkafka/api/FindCoordinator"
 	"github.com/mkocikowski/libkafka/api/Heartbeat"
@@ -14,7 +15,6 @@ import (
 	"github.com/mkocikowski/libkafka/api/OffsetCommit"
 	"github.com/mkocikowski/libkafka/api/OffsetFetch"
 	"github.com/mkocikowski/libkafka/api/SyncGroup"
-	"github.com/mkocikowski/libkafka/errors"
 )
 
 func CallFindCoordinator(bootstrap, groupId string) (*FindCoordinator.Response, error) {
@@ -29,7 +29,7 @@ func GetGroupCoordinator(bootstrap, groupId string) (string, error) {
 		return "", fmt.Errorf("error making FindCoordinator call: %w", err)
 	}
 	if resp.ErrorCode != 0 {
-		return "", fmt.Errorf("error response from FindCoordinator call: %w", &errors.KafkaError{Code: resp.ErrorCode})
+		return "", fmt.Errorf("error response from FindCoordinator call: %w", &libkafka.Error{Code: resp.ErrorCode})
 	}
 	return net.JoinHostPort(resp.Host, strconv.Itoa(int(resp.Port))), nil
 }
@@ -126,8 +126,8 @@ func (c *GroupClient) Heartbeat(memberId string, generationId int32) (*Heartbeat
 }
 
 func parseOffsetFetchResponse(r *OffsetFetch.Response) (int64, error) {
-	if r.ErrorCode != errors.NONE {
-		return -1, &errors.KafkaError{Code: r.ErrorCode}
+	if r.ErrorCode != libkafka.ERR_NONE {
+		return -1, &libkafka.Error{Code: r.ErrorCode}
 	}
 	if n := len(r.Topics); n != 1 {
 		return -1, fmt.Errorf("unexpected number of topic responses: %d", n)
@@ -137,8 +137,8 @@ func parseOffsetFetchResponse(r *OffsetFetch.Response) (int64, error) {
 		return -1, fmt.Errorf("unexpected number of topic partition responses: %d", n)
 	}
 	p := t.Partitions[0]
-	if p.ErrorCode != errors.NONE {
-		return -1, &errors.KafkaError{Code: p.ErrorCode}
+	if p.ErrorCode != libkafka.ERR_NONE {
+		return -1, &libkafka.Error{Code: p.ErrorCode}
 	}
 	return p.CommitedOffset, nil
 }
@@ -161,8 +161,8 @@ func parseOffsetCommitResponse(r *OffsetCommit.Response) error {
 		return fmt.Errorf("unexpected number of topic partition responses: %d", n)
 	}
 	p := t.Partitions[0]
-	if p.ErrorCode != errors.NONE {
-		return &errors.KafkaError{Code: p.ErrorCode}
+	if p.ErrorCode != libkafka.ERR_NONE {
+		return &libkafka.Error{Code: p.ErrorCode}
 	}
 	return nil
 }

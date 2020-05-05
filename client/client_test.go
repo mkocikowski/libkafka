@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api/CreateTopics"
-	"github.com/mkocikowski/libkafka/errors"
 )
 
 func init() {
@@ -35,16 +35,16 @@ func TestIntegrationCallCreateTopic(t *testing.T) {
 	topic := fmt.Sprintf("test-%x", rand.Uint32())
 	var r *CreateTopics.Response
 	r, _ = CallCreateTopic(brokers, topic, 1, 2)
-	if r.Topics[0].ErrorCode != errors.INVALID_REPLICATION_FACTOR {
-		t.Fatal(errors.Descriptions[int(r.Topics[0].ErrorCode)])
+	if r.Topics[0].ErrorCode != libkafka.ERR_INVALID_REPLICATION_FACTOR {
+		t.Fatal(&libkafka.Error{Code: r.Topics[0].ErrorCode})
 	}
 	r, _ = CallCreateTopic(brokers, topic, 1, 1)
-	if r.Topics[0].ErrorCode != errors.NONE {
-		t.Fatal(errors.Descriptions[int(r.Topics[0].ErrorCode)])
+	if r.Topics[0].ErrorCode != libkafka.ERR_NONE {
+		t.Fatal(&libkafka.Error{Code: r.Topics[0].ErrorCode})
 	}
 	r, _ = CallCreateTopic(brokers, topic, 1, 1)
-	if r.Topics[0].ErrorCode != errors.TOPIC_ALREADY_EXISTS {
-		t.Fatal(errors.Descriptions[int(r.Topics[0].ErrorCode)])
+	if r.Topics[0].ErrorCode != libkafka.ERR_TOPIC_ALREADY_EXISTS {
+		t.Fatal(&libkafka.Error{Code: r.Topics[0].ErrorCode})
 	}
 	if _, err := CallCreateTopic("none:9092", topic, 1, 1); err == nil {
 		t.Fatal("expected error")

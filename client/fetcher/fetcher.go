@@ -14,10 +14,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api/Fetch"
 	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/client"
-	"github.com/mkocikowski/libkafka/errors"
 )
 
 func parseResponse(r *Fetch.Response) (*Response, error) {
@@ -91,8 +91,8 @@ func (c *PartitionFetcher) Seek(offset time.Time) error {
 		return err
 	}
 	p := resp.Responses[0].Partitions[0]
-	if p.ErrorCode != errors.NONE {
-		return &errors.KafkaError{Code: p.ErrorCode}
+	if p.ErrorCode != libkafka.ERR_NONE {
+		return &libkafka.Error{Code: p.ErrorCode}
 	}
 	c.offset = p.Offset
 	return nil

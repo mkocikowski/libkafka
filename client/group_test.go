@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api/SyncGroup"
-	"github.com/mkocikowski/libkafka/errors"
 )
 
 func TestIntegrationGroupClientJoin(t *testing.T) {
@@ -26,7 +26,7 @@ func TestIntegrationGroupClientJoin(t *testing.T) {
 			time.Sleep(time.Second)
 			continue
 		}
-		if resp.ErrorCode != errors.NONE {
+		if resp.ErrorCode != libkafka.ERR_NONE {
 			t.Fatalf("%+v", resp)
 		}
 		if resp.GenerationId != 1 {
@@ -70,14 +70,14 @@ func TestIntegrationGroupClientSyncAndHeartbeat(t *testing.T) {
 		},
 	}
 	resp, _ := c.Sync(req)
-	if resp.ErrorCode != errors.NONE {
+	if resp.ErrorCode != libkafka.ERR_NONE {
 		t.Fatalf("%+v", resp)
 	}
 	if string(resp.Assignment) != "foo" {
 		t.Fatalf("%+v", resp)
 	}
 	for i := 0; i < 10; i++ {
-		if resp, _ := c.Heartbeat(memberId, generationId); resp.ErrorCode != errors.NONE {
+		if resp, _ := c.Heartbeat(memberId, generationId); resp.ErrorCode != libkafka.ERR_NONE {
 			t.Fatalf("%+v", resp)
 		}
 	}
@@ -91,7 +91,7 @@ func TestIntegrationGroupClientSyncUnknownMemberId(t *testing.T) {
 	for i := 0; i < 10; i++ { // retry in case kafka not ready in travis
 		req := &SyncGroupRequest{Assignments: []SyncGroup.Assignment{}}
 		resp, _ := c.Sync(req)
-		if resp != nil && resp.ErrorCode == errors.UNKNOWN_MEMBER_ID {
+		if resp != nil && resp.ErrorCode == libkafka.ERR_UNKNOWN_MEMBER_ID {
 			return // success
 		}
 		time.Sleep(time.Second)
@@ -118,7 +118,7 @@ func TestIntegrationGroupOffsets(t *testing.T) {
 	}
 	// try commiting offset for topic that doesn't exist
 	err = c.CommitOffset(topic, 0, 1, 1000)
-	if err.(*errors.KafkaError).Code != errors.UNKNOWN_TOPIC_OR_PARTITION {
+	if err.(*libkafka.Error).Code != libkafka.ERR_UNKNOWN_TOPIC_OR_PARTITION {
 		t.Fatal(err)
 	}
 	//

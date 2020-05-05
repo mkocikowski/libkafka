@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api/Produce"
 	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/client"
-	"github.com/mkocikowski/libkafka/errors"
 )
 
 func init() {
@@ -46,8 +46,8 @@ func TestIntergationPartitionProducer(t *testing.T) {
 		t.Fatal(err)
 	}
 	p.Partition = 1
-	if resp, _ := p.ProduceStrings(time.Now(), "hello"); resp.ErrorCode != errors.UNKNOWN_TOPIC_OR_PARTITION {
-		t.Fatal(errors.Descriptions[int(resp.ErrorCode)])
+	if resp, _ := p.ProduceStrings(time.Now(), "hello"); resp.ErrorCode != libkafka.ERR_UNKNOWN_TOPIC_OR_PARTITION {
+		t.Fatal(&libkafka.Error{Code: resp.ErrorCode})
 	}
 }
 
@@ -75,7 +75,7 @@ func TestIntergationPartitionProducerSingleBatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.ErrorCode != errors.NONE {
+	if resp.ErrorCode != libkafka.ERR_NONE {
 		t.Fatal(resp.ErrorCode)
 	}
 	if b.Crc != 3094838044 {
@@ -88,7 +88,7 @@ func TestIntergationPartitionProducerSingleBatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.ErrorCode != errors.INVALID_REQUIRED_ACKS {
+	if resp.ErrorCode != libkafka.ERR_INVALID_REQUIRED_ACKS {
 		t.Fatalf("%+v", resp)
 	}
 }
@@ -135,7 +135,7 @@ func TestIntergationPartitionProducerCorruptBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r, _ := parseResponse(resp); r.ErrorCode != errors.CORRUPT_MESSAGE {
+	if r, _ := parseResponse(resp); r.ErrorCode != libkafka.ERR_CORRUPT_MESSAGE {
 		t.Fatalf("%+v", r)
 	}
 }
