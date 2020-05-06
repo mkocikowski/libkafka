@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/mkocikowski/libkafka/api/Metadata"
 )
 
 func init() {
@@ -39,4 +41,12 @@ func TestIntergationPartitionClientNoLeaderForPartition(t *testing.T) {
 		t.Fatal("expected 'no leader for partition' error")
 	}
 	t.Log(err)
+}
+
+func TestUnitLeaderString(t *testing.T) {
+	b := &Metadata.Broker{Rack: "foo", NodeId: 1, Host: "bar", Port: 9092}
+	s := fmt.Sprintf("%v", b)
+	if s != "foo:1:bar:9092" {
+		t.Fatal(s)
+	}
 }

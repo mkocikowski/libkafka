@@ -1,6 +1,7 @@
 package Metadata
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 )
@@ -22,6 +23,10 @@ type Broker struct {
 
 func (b *Broker) Addr() string {
 	return net.JoinHostPort(b.Host, strconv.Itoa(int(b.Port)))
+}
+
+func (b *Broker) String() string {
+	return fmt.Sprintf("%s:%d:%s:%d", b.Rack, b.NodeId, b.Host, b.Port)
 }
 
 type TopicMetadata struct {

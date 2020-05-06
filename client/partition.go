@@ -57,7 +57,7 @@ func (c *PartitionClient) connect() (err error) {
 	}
 	c.conn, err = net.DialTimeout("tcp", c.leader.Addr(), time.Second)
 	if err != nil {
-		return fmt.Errorf("error connecting to topic %v partition %d leader %+v: %v", c.Topic, c.Partition, *(c.leader), err)
+		return fmt.Errorf("error connecting to topic %v partition %d leader %v: %v", c.Topic, c.Partition, c.leader, err)
 	}
 	return nil
 }
