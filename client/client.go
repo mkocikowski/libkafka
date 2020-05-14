@@ -90,6 +90,12 @@ func CallApiVersions(bootstrap string) (*ApiVersions.Response, error) {
 	return resp, connectAndCall(bootstrap, req, resp)
 }
 
+func apiVersions(conn net.Conn) (*ApiVersions.Response, error) {
+	req := ApiVersions.NewRequest()
+	resp := &ApiVersions.Response{}
+	return resp, call(conn, req, resp)
+}
+
 func CallMetadata(bootstrap string, topics []string) (*Metadata.Response, error) {
 	req := Metadata.NewRequest(topics)
 	resp := &Metadata.Response{}

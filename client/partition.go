@@ -6,7 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api"
+	"github.com/mkocikowski/libkafka/api/ApiVersions"
 	"github.com/mkocikowski/libkafka/api/Fetch"
 	"github.com/mkocikowski/libkafka/api/ListOffsets"
 	"github.com/mkocikowski/libkafka/api/Metadata"
@@ -40,6 +42,7 @@ type PartitionClient struct {
 	Topic     string
 	Partition int32
 	leader    *Metadata.Broker
+	versions  *ApiVersions.Response
 	conn      net.Conn
 }
 
@@ -57,7 +60,15 @@ func (c *PartitionClient) connect() (err error) {
 	}
 	c.conn, err = net.DialTimeout("tcp", c.leader.Addr(), time.Second)
 	if err != nil {
-		return fmt.Errorf("error connecting to topic %v partition %d leader %v: %v", c.Topic, c.Partition, c.leader, err)
+		return fmt.Errorf("error connecting to topic %v partition %d leader %v: %w", c.Topic, c.Partition, c.leader, err)
+	}
+	// version information is needed only for the kafka 1.0 produce hack
+	c.versions, err = apiVersions(c.conn)
+	if err != nil {
+		return fmt.Errorf("error getting api versions from broker %v: %w", c.leader, err)
+	}
+	if code := c.versions.ErrorCode; code != libkafka.ERR_NONE {
+		return fmt.Errorf("error response for api versions call from broker %v: %w", c.leader, libkafka.Error{Code: code})
 	}
 	return nil
 }
@@ -86,6 +97,10 @@ func (c *PartitionClient) call(req *api.Request, v interface{}) error {
 	defer c.Unlock()
 	if err := c.connect(); err != nil {
 		return err
+	}
+	// TODO: remove
+	if req.ApiKey == api.Produce && c.versions.ApiKeys[api.Produce].MaxVersion == 5 {
+		req.ApiVersion = 5 // downgrade to be able to produce to kafka 1.0
 	}
 	err := call(c.conn, req, v)
 	if err != nil {
