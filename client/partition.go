@@ -92,6 +92,15 @@ func (c *PartitionClient) Close() error { // implement io.Closer
 	return nil
 }
 
+// Leader returns the currently resolved partition leader. This could be stale
+// or incorrect. Putting it here for debugging but may remove it later. TODO:
+// work through edge cases. May return nil.
+func (c *PartitionClient) Leader() *Metadata.Broker {
+	c.Lock()
+	c.Unlock()
+	return c.leader
+}
+
 func (c *PartitionClient) call(req *api.Request, v interface{}) error {
 	c.Lock()
 	defer c.Unlock()
