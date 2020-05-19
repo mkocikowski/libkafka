@@ -47,7 +47,7 @@ type Response struct {
 	ErrorCode      int16
 	LogStartOffset int64
 	HighWatermark  int64
-	RecordSet      batch.RecordSet
+	RecordSet      batch.RecordSet `json:"-"`
 }
 
 type Fetcher interface {
