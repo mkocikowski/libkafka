@@ -10,7 +10,6 @@ package fetcher
 
 import (
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
@@ -48,23 +47,6 @@ type Response struct {
 	LogStartOffset int64
 	HighWatermark  int64
 	RecordSet      batch.RecordSet `json:"-"`
-}
-
-type Fetcher interface {
-	Fetch() (*Response, error)
-	Seeker
-	io.Closer
-}
-
-type Seeker interface {
-	Seek(time.Time) error
-	Offset() int64
-	SetOffset(int64)
-}
-
-type SeekCloser interface {
-	Seeker
-	io.Closer
 }
 
 type PartitionFetcher struct {

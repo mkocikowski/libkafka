@@ -17,11 +17,6 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func TestUnitPartitionFetcherImplementsFetcher(t *testing.T) {
-	c := &PartitionFetcher{}
-	_ = Fetcher(c) // panics if does not implement
-}
-
 func TestIntergationPartitionFetcher(t *testing.T) {
 	bootstrap := "localhost:9092"
 	topic := fmt.Sprintf("test-%x", rand.Uint32())
