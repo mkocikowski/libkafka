@@ -5,13 +5,13 @@ Kafka record batches.
 Producing
 
 When producting messages, call NewBuilder, and Add records to it. Call
-Builder.Build and pass the returned Batch to the producer. Set the Builder to
-nil when done with it to release references to added records.
+Builder.Build and pass the returned Batch to the producer. Release the
+reference to Builder when done with it to release references to added records.
 
-Consuming
+Fetching ("consuming")
 
 Fetch result (if successful) will contain RecordSet. Call its Batches method to
-get byte slices containing individual batches.  Unmarshal each batch
+get byte slices containing individual batches. Unmarshal each batch
 individually. To get individual records, call Batch.Records and then
 record.Unmarshal. Passing around batches is much more efficient than passing
 individual records, so save record unmarshaling until the very end.
@@ -55,7 +55,8 @@ type Builder struct {
 }
 
 // Add records to the batch. References to added records are not released on
-// call to Build.
+// call to Build. This means you can add more records and call Build again.
+// Don't know why you would want to, but you can.
 func (b *Builder) Add(records ...*record.Record) {
 	b.records = append(b.records, records...)
 }
@@ -80,7 +81,12 @@ var (
 // Build a record batch (marshal individual records and set batch metadata).
 // Call this after adding records to the batch. Returns ErrEmpty if batch has
 // no records. Returns ErrNilRecord if any of the records is nil. Marshaled
-// records are not compressed (call Batch.Compress). Idempotent.
+// records are not compressed (call Batch.Compress). Batch FirstTimestamp is
+// set to the time when the builder was created (with NewBuilder) and the
+// MaxTimestamp is set to the time passed to Build. Within the batch, each
+// record's TimestampDelta is 0, meaning that all records will appear to have
+// been produced at the time the builder was created (TODO: change? how?)
+// Idempotent.
 func (b *Builder) Build(now time.Time) (*Batch, error) {
 	if len(b.records) == 0 {
 		return nil, ErrEmpty
