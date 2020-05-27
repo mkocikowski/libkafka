@@ -15,6 +15,7 @@ import (
 
 	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api/Fetch"
+	"github.com/mkocikowski/libkafka/api/Metadata"
 	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/client"
 )
@@ -29,9 +30,9 @@ func parseResponse(r *Fetch.Response) (*Response, error) {
 	}
 	partitionResponse := &(topicResponse.PartitionResponses[0])
 	return &Response{
-		ThrottleTimeMs: r.ThrottleTimeMs,
 		Topic:          topicResponse.Topic,
 		Partition:      partitionResponse.Partition,
+		ThrottleTimeMs: r.ThrottleTimeMs,
 		ErrorCode:      partitionResponse.ErrorCode,
 		LogStartOffset: partitionResponse.LogStartOffset,
 		HighWatermark:  partitionResponse.HighWatermark,
@@ -40,6 +41,7 @@ func parseResponse(r *Fetch.Response) (*Response, error) {
 }
 
 type Response struct {
+	Broker         *Metadata.Broker
 	Topic          string
 	Partition      int32
 	ThrottleTimeMs int32
@@ -116,5 +118,6 @@ func (c *PartitionFetcher) Fetch() (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	resp.Broker = c.Leader()
 	return resp, nil
 }

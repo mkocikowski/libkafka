@@ -46,6 +46,7 @@ type PartitionClient struct {
 	conn      net.Conn
 }
 
+// find partition leader, connect to it, and set c.leader
 func (c *PartitionClient) connect() (err error) {
 	if c.conn != nil {
 		return nil
@@ -73,6 +74,8 @@ func (c *PartitionClient) connect() (err error) {
 	return nil
 }
 
+// close connection to leader, but do not zero c.leader (so that it can still
+// be accessed with c.Leader call)
 func (c *PartitionClient) disconnect() error {
 	if c.conn == nil {
 		return nil
@@ -92,9 +95,8 @@ func (c *PartitionClient) Close() error { // implement io.Closer
 	return nil
 }
 
-// Leader returns the currently resolved partition leader. This could be stale
-// or incorrect. Putting it here for debugging but may remove it later. TODO:
-// work through edge cases. May return nil.
+// Leader returns the last resolved partition leader, even if connection has
+// since been closed (as happens on error).
 func (c *PartitionClient) Leader() *Metadata.Broker {
 	c.Lock()
 	c.Unlock()

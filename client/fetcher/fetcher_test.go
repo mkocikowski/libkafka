@@ -74,6 +74,9 @@ func TestIntergationPartitionFetcher(t *testing.T) {
 	if b.LastOffsetDelta != 1 {
 		t.Fatalf("%+v", b)
 	}
+	if s := resp.Broker.String(); s != ":0:localhost:9092" {
+		t.Fatal(s)
+	}
 	//
 	c.offset = 4
 	resp, err = c.Fetch()
