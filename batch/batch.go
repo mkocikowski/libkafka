@@ -142,13 +142,13 @@ type Batch struct {
 	Magic                int8 // this should be =2
 	Crc                  uint32
 	Attributes           int16
-	LastOffsetDelta      int32
+	LastOffsetDelta      int32 // NumRecords-1 // TODO: is this always true?
 	FirstTimestamp       int64 // ms since epoch
 	MaxTimestamp         int64 // ms since epoch
 	ProducerId           int64 // for transactions only see KIP-360
 	ProducerEpoch        int16 // for transactions only see KIP-360
 	BaseSequence         int32
-	NumRecords           int32
+	NumRecords           int32 // LastOffsetDelta+1
 	//
 	MarshaledRecords []byte `wire:"omit" json:"-"`
 }
