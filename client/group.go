@@ -143,6 +143,8 @@ func parseOffsetFetchResponse(r *OffsetFetch.Response) (int64, error) {
 	return p.CommitedOffset, nil
 }
 
+// Fetch last commited offset for topic partition. If the topic partition does
+// not exist, or there is no offset commited for it, returns -1 and no error.
 func (c *GroupClient) FetchOffset(topic string, partition int32) (int64, error) {
 	req := OffsetFetch.NewRequest(c.GroupId, topic, partition)
 	resp := &OffsetFetch.Response{}
