@@ -66,11 +66,14 @@ var (
 	MessageOldest = time.Unix(0, -2e6)
 )
 
-func (c *PartitionFetcher) Seek(offset time.Time) error {
+// Seek looks up an offset close to specified timestamp and sets the fetcher's
+// offset to it. If there is any error the fetcher's offset is not modified.
+// MessageNewest and MessageOldest are two "magic" values for the target.
+func (c *PartitionFetcher) Seek(target time.Time) error {
 	c.Lock()
 	defer c.Unlock()
-	o := offset.UnixNano() / int64(time.Millisecond)
-	resp, err := c.PartitionClient.ListOffsets(o)
+	timestampMs := target.UnixNano() / int64(time.Millisecond)
+	resp, err := c.PartitionClient.ListOffsets(timestampMs)
 	if err != nil {
 		return err
 	}

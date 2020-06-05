@@ -120,8 +120,8 @@ func (c *PartitionClient) call(req *api.Request, v interface{}) error {
 	return err
 }
 
-func (c *PartitionClient) ListOffsets(offset int64) (*ListOffsets.Response, error) {
-	req := ListOffsets.NewRequest(c.Topic, c.Partition, offset)
+func (c *PartitionClient) ListOffsets(timestampMs int64) (*ListOffsets.Response, error) {
+	req := ListOffsets.NewRequest(c.Topic, c.Partition, timestampMs)
 	resp := &ListOffsets.Response{}
 	return resp, c.call(req, resp)
 }

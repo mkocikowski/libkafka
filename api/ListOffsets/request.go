@@ -5,8 +5,8 @@ import (
 )
 
 // timestamp is milliseconds since epoch
-func NewRequest(topic string, partition int32, timestamp int64) *api.Request {
-	p := []RequestPartition{{Partition: partition, Timestamp: timestamp}}
+func NewRequest(topic string, partition int32, timestampMs int64) *api.Request {
+	p := []RequestPartition{{Partition: partition, Timestamp: timestampMs}}
 	t := []RequestTopic{{Topic: topic, Partitions: p}}
 	return &api.Request{
 		ApiKey:     api.ListOffsets,
