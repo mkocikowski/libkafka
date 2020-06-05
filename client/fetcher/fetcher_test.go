@@ -124,3 +124,35 @@ func TestIntergationPartitionFetcher(t *testing.T) {
 		t.Fatalf("%+v", resp)
 	}
 }
+
+// test that when fetching the newest offset (where the offset is the same as
+// the high watermark), if there are no new records ready to be fetched, then
+// there is no error, and no error code
+func TestIntergationPartitionFetcherEmptyPartition(t *testing.T) {
+	bootstrap := "localhost:9092"
+	topic := fmt.Sprintf("test-%x", rand.Uint32())
+	if _, err := client.CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	//
+	c := &PartitionFetcher{
+		PartitionClient: client.PartitionClient{
+			Bootstrap: bootstrap,
+			Topic:     topic,
+			Partition: 0,
+		},
+		MinBytes:      10 << 10,
+		MaxBytes:      10 << 20,
+		MaxWaitTimeMs: 1000,
+	}
+	resp, err := c.Fetch()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if resp.ErrorCode != libkafka.ERR_NONE {
+		log.Fatalf("%+v", resp)
+	}
+	if len(resp.RecordSet) != 0 {
+		log.Fatalf("%+v", resp)
+	}
+}
