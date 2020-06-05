@@ -109,6 +109,12 @@ func TestIntergationPartitionFetcher(t *testing.T) {
 		t.Fatalf("%+v", resp)
 	}
 	//
+	c.offset = -1
+	resp, _ = c.Fetch()
+	if resp.ErrorCode != libkafka.ERR_OFFSET_OUT_OF_RANGE {
+		t.Fatalf("%+v", resp)
+	}
+	//
 	if err := c.Seek(MessageNewest); err != nil {
 		t.Fatal(err)
 	}
