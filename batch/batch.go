@@ -120,6 +120,9 @@ var (
 	crc32c              = crc32.MakeTable(crc32.Castagnoli)
 )
 
+// Unmarshal the batch. On error batch is nil. If there is an error, it is most
+// likely because the crc failed. In that case there is no way to tell how many
+// records there were in the batch (and to adjust offsets accordingly).
 func Unmarshal(b []byte) (*Batch, error) {
 	buf := bytes.NewBuffer(b)
 	batch := &Batch{}
