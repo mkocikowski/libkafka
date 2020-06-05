@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -15,12 +16,25 @@ import (
 	"github.com/mkocikowski/libkafka/api/Produce"
 )
 
-func GetPartitionLeaders(bootstrap, topic string) (map[int32]*Metadata.Broker, error) {
+var (
+	ErrPartitionDoesNotExist = errors.New("partition does not exist")
+	ErrNoLeaderForPartition  = errors.New("no leader for partition")
+)
+
+func GetPartitionLeader(bootstrap, topic string, partition int32) (*Metadata.Broker, error) {
 	meta, err := CallMetadata(bootstrap, []string{topic})
 	if err != nil {
 		return nil, err
 	}
-	return meta.Leaders(topic), nil
+	partitions := meta.Partitions(topic)
+	if p := partitions[partition]; p == nil {
+		return nil, ErrPartitionDoesNotExist
+	}
+	leaders := meta.Leaders(topic)
+	if l := leaders[partition]; l == nil {
+		return nil, ErrNoLeaderForPartition
+	}
+	return leaders[partition], nil
 }
 
 // PartitionClient maintains a connection to the leader of a single topic
@@ -51,25 +65,21 @@ func (c *PartitionClient) connect() (err error) {
 	if c.conn != nil {
 		return nil
 	}
-	leaders, err := GetPartitionLeaders(c.Bootstrap, c.Topic)
+	c.leader, err = GetPartitionLeader(c.Bootstrap, c.Topic, c.Partition)
 	if err != nil {
-		return fmt.Errorf("error getting topic %v partition %d leader: %w", c.Topic, c.Partition, err)
-	}
-	c.leader = leaders[c.Partition]
-	if c.leader == nil {
-		return fmt.Errorf("no leader for %v partition %d", c.Topic, c.Partition)
+		return fmt.Errorf("error getting partition leader: %w", err)
 	}
 	c.conn, err = net.DialTimeout("tcp", c.leader.Addr(), time.Second)
 	if err != nil {
-		return fmt.Errorf("error connecting to topic %v partition %d leader %v: %w", c.Topic, c.Partition, c.leader, err)
+		return fmt.Errorf("error connecting to partition leader: %w", err)
 	}
 	// version information is needed only for the kafka 1.0 produce hack
 	c.versions, err = apiVersions(c.conn)
 	if err != nil {
-		return fmt.Errorf("error getting api versions from broker %v: %w", c.leader, err)
+		return fmt.Errorf("error getting api versions from broker: %w", err)
 	}
 	if code := c.versions.ErrorCode; code != libkafka.ERR_NONE {
-		return fmt.Errorf("error response for api versions call from broker %v: %w", c.leader, libkafka.Error{Code: code})
+		return fmt.Errorf("error response for api versions call from broker: %w", libkafka.Error{Code: code})
 	}
 	return nil
 }
@@ -107,7 +117,7 @@ func (c *PartitionClient) call(req *api.Request, v interface{}) error {
 	c.Lock()
 	defer c.Unlock()
 	if err := c.connect(); err != nil {
-		return err
+		return fmt.Errorf("error connecting: %w", err)
 	}
 	// TODO: remove
 	if req.ApiKey == api.Produce && c.versions.ApiKeys[api.Produce].MaxVersion == 5 {

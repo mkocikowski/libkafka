@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -28,7 +29,7 @@ func TestIntergationPartitionClientBadBootstrap(t *testing.T) {
 	t.Log(err)
 }
 
-func TestIntergationPartitionClientNoLeaderForPartition(t *testing.T) {
+func TestIntergationPartitionClientTopicDoesNotExist(t *testing.T) {
 	bootstrap := "localhost:9092"
 	topic := fmt.Sprintf("test-%x", rand.Uint32()) // do not create
 	c := &PartitionClient{
@@ -37,8 +38,8 @@ func TestIntergationPartitionClientNoLeaderForPartition(t *testing.T) {
 		Partition: 0,
 	}
 	_, err := c.ListOffsets(0)
-	if err == nil {
-		t.Fatal("expected 'no leader for partition' error")
+	if !errors.Is(err, ErrPartitionDoesNotExist) {
+		t.Fatal(err)
 	}
 	t.Log(err)
 }
