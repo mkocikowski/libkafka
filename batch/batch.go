@@ -248,10 +248,10 @@ func (b RecordSet) Batches() [][]byte {
 		}
 		r := bytes.NewReader(b)
 		if err := binary.Read(r, binary.BigEndian, &offset); err != nil {
-			return nil
+			break
 		}
 		if err := binary.Read(r, binary.BigEndian, &length); err != nil {
-			return nil
+			break
 		}
 		n := int(length + 8 + 4)
 		if len(b) < n {
