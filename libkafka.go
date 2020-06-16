@@ -1,6 +1,6 @@
 /*
-Package libkafka is a low level library for producing to and consuming from
-Kafka 2.3+. It has no external dependencies. It is not modeled on the Java
+Package libkafka is a low level golang library for producing to and consuming
+from Kafka 1.0+. It has no external dependencies. It is not modeled on the Java
 client. All API calls are synchronous and all code executes in the calling
 goroutine.
 
@@ -32,14 +32,14 @@ a single connection there can be multiple requests awaiting response from the
 Kafka broker. In addition, many API calls (such as Produce and Fetch) can
 combine data for multiple topics and partitions in a single call. Libkafka
 maintains a separate connection for every topic-partition and calls on that
-connection are synchronous. That makes call handling (and failure) logic
-simpler.
+connection are synchronous, and each call is for only one topic-partition. That
+makes call handling (and failure) logic simpler.
 
 3. Wide use of reflection. All API calls (requests and responses) are defined
 as structs and marshaled using reflection. This is not a performance problem,
 because API calls are not frequent. Marshaling and unmarshaling of individual
 records within record batches (which has big performance impact) is done
-inline.
+without using reflection.
 
 4. Limited use of data hiding. The library is not intended to be child proof.
 Most internal structures are exposed to make debugging and metrics collection
