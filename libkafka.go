@@ -48,6 +48,8 @@ easier.
 package libkafka
 
 import (
+	"time"
+
 	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/record"
 )
@@ -62,3 +64,9 @@ type Batch = batch.Batch
 
 type Compressor = batch.Compressor
 type Decompressor = batch.Decompressor
+
+// DialTimeout value is used in net.DialTimeout calls to connect to kafka
+// brokers (partition leaders, group coordinators, bootstrap hosts). Changing
+// it is not safe for concurrent use. If you want to change it, do it once,
+// right at the beginning.
+var DialTimeout = 5 * time.Second

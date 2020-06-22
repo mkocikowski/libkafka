@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api"
@@ -69,7 +68,7 @@ func (c *PartitionClient) connect() (err error) {
 	if err != nil {
 		return fmt.Errorf("error getting partition leader: %w", err)
 	}
-	c.conn, err = net.DialTimeout("tcp", c.leader.Addr(), time.Second)
+	c.conn, err = net.DialTimeout("tcp", c.leader.Addr(), libkafka.DialTimeout)
 	if err != nil {
 		return fmt.Errorf("error connecting to partition leader: %w", err)
 	}

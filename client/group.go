@@ -5,7 +5,6 @@ import (
 	"net"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api"
@@ -51,7 +50,7 @@ func (c *GroupClient) connect() error {
 	if err != nil {
 		return err
 	}
-	c.conn, err = net.DialTimeout("tcp", addr, time.Second)
+	c.conn, err = net.DialTimeout("tcp", addr, libkafka.DialTimeout)
 	if err != nil {
 		return fmt.Errorf("error connecting to group coordinator: %w", err)
 	}

@@ -13,8 +13,8 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
-	"time"
 
+	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api"
 	"github.com/mkocikowski/libkafka/api/ApiVersions"
 	"github.com/mkocikowski/libkafka/api/CreateTopics"
@@ -54,7 +54,7 @@ func RandomBroker(name string) string {
 }
 
 func connect(bootstrap string) (net.Conn, error) {
-	return net.DialTimeout("tcp", RandomBroker(bootstrap), time.Second)
+	return net.DialTimeout("tcp", RandomBroker(bootstrap), libkafka.DialTimeout)
 }
 
 func call(conn io.ReadWriter, req *api.Request, v interface{}) error {
