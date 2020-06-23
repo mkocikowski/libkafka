@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mkocikowski/libkafka/api/Metadata"
 	"github.com/mkocikowski/libkafka/api/Produce"
 	"github.com/mkocikowski/libkafka/batch"
 	"github.com/mkocikowski/libkafka/client"
@@ -31,6 +32,7 @@ func parseResponse(r *Produce.Response) (*Response, error) {
 }
 
 type Response struct {
+	Broker         *Metadata.Broker
 	Topic          string
 	Partition      int32
 	ThrottleTimeMs int32
@@ -55,6 +57,14 @@ func (p *PartitionProducer) ProduceStrings(now time.Time, values ...string) (*Re
 	return p.Produce(b)
 }
 
+func produce(c *client.PartitionClient, args *Produce.Args, rs batch.RecordSet) (*Response, error) {
+	resp, err := c.Produce(args, rs)
+	if err != nil {
+		return nil, err
+	}
+	return parseResponse(resp)
+}
+
 // Produce (send) batch to Kafka. Single request is made (no retries). The call
 // is blocking. See documentation for client.PartitionClient for general
 // description on how request errors are handled. Specific to Produce requests:
@@ -70,9 +80,13 @@ func (p *PartitionProducer) Produce(b *batch.Batch) (*Response, error) {
 		TimeoutMs: p.TimeoutMs,
 	}
 	recordSet := b.Marshal()
-	resp, err := p.PartitionClient.Produce(args, recordSet)
+	resp, err := produce(&(p.PartitionClient), args, recordSet)
 	if err != nil {
+		if leader := p.Leader(); leader != nil {
+			err = fmt.Errorf("error calling %+v: %w", leader, err)
+		}
 		return nil, err
 	}
-	return parseResponse(resp)
+	resp.Broker = p.Leader()
+	return resp, nil
 }

@@ -119,6 +119,9 @@ func (c *PartitionFetcher) Fetch() (*Response, error) {
 	}
 	resp, err := fetch(&(c.PartitionClient), args)
 	if err != nil {
+		if leader := c.Leader(); leader != nil {
+			err = fmt.Errorf("error calling %+v: %w", leader, err)
+		}
 		return nil, err
 	}
 	resp.Broker = c.Leader()

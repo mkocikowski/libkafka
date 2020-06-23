@@ -124,18 +124,52 @@ func TestIntergationPartitionProducerCorruptBytes(t *testing.T) {
 	b, _ := batch.NewBuilder(now).AddStrings("foo", "bar").Build(now)
 	corrupted := b.Marshal()
 	corrupted[len(corrupted)-1] = math.MaxUint8 - corrupted[len(corrupted)-1]
-	// calling PartitionClient.Produce and not just Produce so that batch is not re-marshaled
 	args := &Produce.Args{
 		Topic:     topic,
 		Partition: 0,
 		Acks:      1,
 		TimeoutMs: 1000,
 	}
+	// calling PartitionClient.Produce and not just Produce so that batch
+	// is not re-marshaled
 	resp, err := p.PartitionClient.Produce(args, corrupted)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r, _ := parseResponse(resp); r.ErrorCode != libkafka.ERR_CORRUPT_MESSAGE {
-		t.Fatalf("%+v", r)
+	parsed, _ := parseResponse(resp)
+	if parsed.ErrorCode != libkafka.ERR_CORRUPT_MESSAGE {
+		t.Fatalf("%+v", parsed)
+	}
+}
+
+func TestIntergationPartitionProducerConnectionClosed(t *testing.T) {
+	bootstrap := "localhost:9092"
+	topic := fmt.Sprintf("test-%x", rand.Uint32())
+	if _, err := client.CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	p := &PartitionProducer{
+		PartitionClient: client.PartitionClient{
+			Bootstrap: bootstrap,
+			Topic:     topic,
+			Partition: 0,
+		},
+		Acks:      1,
+		TimeoutMs: 1000,
+	}
+	if _, err := p.ProduceStrings(time.Now(), "foo"); err != nil {
+		t.Fatal(err)
+	}
+	// this is "clean" and results in reconnect on next produce
+	p.Close()
+	if _, err := p.ProduceStrings(time.Now(), "bar"); err != nil {
+		t.Fatal(err)
+	}
+	// this is "dirty" and results in error on next produce
+	p.Conn().Close()
+	if _, err := p.ProduceStrings(time.Now(), "baz"); err == nil {
+		t.Fatal("expected 'use of closed network connection' error")
+	} else {
+		t.Log(err)
 	}
 }

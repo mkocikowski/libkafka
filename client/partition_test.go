@@ -10,6 +10,13 @@ import (
 	"github.com/mkocikowski/libkafka/api/Metadata"
 )
 
+func (c *PartitionClient) Kill() error { // implement io.Closer
+	c.Lock()
+	defer c.Unlock()
+	c.disconnect()
+	return nil
+}
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }

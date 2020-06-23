@@ -112,6 +112,17 @@ func (c *PartitionClient) Leader() *Metadata.Broker {
 	return c.leader
 }
 
+// Conn returns the connection that the client has to the partition leader. The
+// call is safe for concurrent use, but it is no safe to change the connection.
+// The purpose of exposing it here is mostly to make it easier to test network
+// errors. Be careful with this one. If you need to cleanly close the current
+// connection to the leader, call Close(), not Conn().Close().
+func (c *PartitionClient) Conn() net.Conn {
+	c.Lock()
+	defer c.Unlock()
+	return c.conn
+}
+
 func (c *PartitionClient) call(req *api.Request, v interface{}) error {
 	c.Lock()
 	defer c.Unlock()
