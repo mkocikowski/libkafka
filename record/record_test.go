@@ -2,6 +2,8 @@ package record
 
 import (
 	"encoding/base64"
+	"fmt"
+	"math/rand"
 	"testing"
 )
 
@@ -38,5 +40,25 @@ func TestUnitUnmarshal(t *testing.T) {
 	t.Logf("%+v", r)
 	if string(r.Value) != "m3" {
 		t.Fatal(string(r.Value))
+	}
+}
+
+func BenchmarkRecord_Marshal(b *testing.B) {
+	const messagesN = 1e3
+	msgs := make([]*Record, messagesN)
+	for i := 0; i < messagesN; i++ {
+		key := fmt.Sprintf("key_%d", i)
+		val := fmt.Sprintf("value_%d", i)
+		r := New([]byte(key), []byte(val))
+		r.Attributes = int8(i)
+		r.TimestampDelta = rand.Int63()
+		r.OffsetDelta = rand.Int63()
+		msgs[i] = r
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		b := msgs[i%messagesN].Marshal()
+		b = b[:]
 	}
 }

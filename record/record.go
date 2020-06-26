@@ -1,7 +1,11 @@
 // Package record implements functions for marshaling and unmarshaling individual Kafka records.
 package record
 
-import "github.com/mkocikowski/libkafka/varint"
+import (
+	"encoding/binary"
+
+	"github.com/mkocikowski/libkafka/varint"
+)
 
 func Unmarshal(b []byte) (*Record, error) { // TODO: errors
 	r := &Record{}
@@ -53,15 +57,16 @@ type Record struct {
 
 func (r *Record) Marshal() []byte {
 	var b, c []byte
-	b = append(b, varint.EncodeZigZag64(int64(r.Attributes))...)
-	b = append(b, varint.EncodeZigZag64(r.TimestampDelta)...)
-	b = append(b, varint.EncodeZigZag64(r.OffsetDelta)...)
-	b = append(b, varint.EncodeZigZag64(r.KeyLen)...)
+	buf := make([]byte, binary.MaxVarintLen64)
+	b = varint.PutZigZag64(b, buf, int64(r.Attributes))
+	b = varint.PutZigZag64(b, buf, r.TimestampDelta)
+	b = varint.PutZigZag64(b, buf, r.OffsetDelta)
+	b = varint.PutZigZag64(b, buf, r.KeyLen)
 	b = append(b, r.Key...)
-	b = append(b, varint.EncodeZigZag64(r.ValueLen)...)
+	b = varint.PutZigZag64(b, buf, r.ValueLen)
 	b = append(b, r.Value...)
-	b = append(b, varint.EncodeZigZag64(0)...) // no headers
-	c = append(c, varint.EncodeZigZag64(int64(len(b)))...)
+	b = varint.PutZigZag64(b, buf, 0) // no headers
+	c = varint.PutZigZag64(c, buf, int64(len(b)))
 	c = append(c, b...)
 	return c
 }
