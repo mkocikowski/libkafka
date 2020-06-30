@@ -10,15 +10,26 @@ import (
 	"github.com/mkocikowski/libkafka/api/Metadata"
 )
 
-func (c *PartitionClient) Kill() error { // implement io.Closer
-	c.Lock()
-	defer c.Unlock()
-	c.disconnect()
-	return nil
-}
-
 func init() {
 	rand.Seed(time.Now().UnixNano())
+}
+
+func TestIntergationPartitionClientSuccess(t *testing.T) {
+	bootstrap := "localhost:9092"
+	topic := fmt.Sprintf("test-%x", rand.Uint32())
+	if _, err := CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	c := &PartitionClient{
+		Bootstrap: bootstrap,
+		Topic:     topic,
+		Partition: 0,
+	}
+	r, err := c.ListOffsets(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", r)
 }
 
 func TestIntergationPartitionClientBadBootstrap(t *testing.T) {
@@ -49,6 +60,47 @@ func TestIntergationPartitionClientTopicDoesNotExist(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log(err)
+}
+
+// the purpose of this test is to test that when ConnMaxIdle is set connection
+// is automatically closed and reopened when the idle time is exceeded
+func TestIntergationPartitionClientConnectionTimeout(t *testing.T) {
+	bootstrap := "localhost:9092"
+	topic := fmt.Sprintf("test-%x", rand.Uint32())
+	if _, err := CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	timeout := 50 * time.Millisecond
+	c := &PartitionClient{
+		Bootstrap:   bootstrap,
+		Topic:       topic,
+		Partition:   0,
+		ConnMaxIdle: timeout,
+	}
+	// make first call to open connection
+	if _, err := c.ListOffsets(0); err != nil {
+		t.Fatal(err)
+	}
+	// record the connection
+	conn := c.Conn()
+	// make second call
+	if _, err := c.ListOffsets(0); err != nil {
+		t.Fatal(err)
+	}
+	// ensure the connection is the same connection
+	if c.Conn() != conn {
+		t.Fatal("different connection")
+	}
+	// now exceed the timeout
+	time.Sleep(timeout)
+	// third call
+	if _, err := c.ListOffsets(0); err != nil {
+		t.Fatal(err)
+	}
+	// now there should be different connection
+	if c.Conn() == conn {
+		t.Fatal("same connection")
+	}
 }
 
 func TestUnitLeaderString(t *testing.T) {

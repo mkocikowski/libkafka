@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api"
@@ -54,15 +55,31 @@ type PartitionClient struct {
 	ClientId  string
 	Topic     string
 	Partition int32
-	leader    *Metadata.Broker
-	versions  *ApiVersions.Response
-	conn      net.Conn
+	// ConnMaxIdle corresponds to connections.max.idle.ms broker setting.
+	// Kafka broker will close connections that have been idle (no api
+	// calls have been made; this is not about tcp keep alives) for this
+	// long. Making a PartitionClient call on a closed connection will
+	// result in an error (and connection will be re-established on the
+	// next call). If you don't want this error, set ConnMaxIdle to >0.
+	// This way, if more than ConnMaxIdle passed since the last call,
+	// PartitionClient will close the current connection, and open a new
+	// one. Default value of 0 means that no check it made.
+	ConnMaxIdle  time.Duration
+	leader       *Metadata.Broker
+	versions     *ApiVersions.Response
+	conn         net.Conn
+	connLastUsed time.Time
 }
 
 // find partition leader, connect to it, and set c.leader
 func (c *PartitionClient) connect() (err error) {
 	if c.conn != nil {
-		return nil
+		if c.ConnMaxIdle == 0 || time.Since(c.connLastUsed) < c.ConnMaxIdle {
+			return nil
+		}
+		// there is an open connection but no calls have been made for
+		// more than ConnMaxIdle
+		c.disconnect()
 	}
 	c.leader, err = GetPartitionLeader(c.Bootstrap, c.Topic, c.Partition)
 	if err != nil {
@@ -72,6 +89,7 @@ func (c *PartitionClient) connect() (err error) {
 	if err != nil {
 		return fmt.Errorf("error connecting to partition leader: %w", err)
 	}
+	c.connLastUsed = time.Now().UTC()
 	// version information is needed only for the kafka 1.0 produce hack
 	c.versions, err = apiVersions(c.conn)
 	if err != nil {
@@ -137,6 +155,7 @@ func (c *PartitionClient) call(req *api.Request, v interface{}) error {
 	if err != nil {
 		c.disconnect()
 	}
+	c.connLastUsed = time.Now().UTC()
 	return err
 }
 
