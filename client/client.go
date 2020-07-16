@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api"
@@ -21,19 +22,41 @@ import (
 	"github.com/mkocikowski/libkafka/api/Metadata"
 )
 
+var (
+	srvLookupMutex sync.Mutex
+	srvLookupCache = make(map[string][]string) // TODO: ttl
+)
+
 // LookupSrv returns a list of host:port strings in the order returned by the
 // srv lookup call.
 func LookupSrv(name string) ([]string, error) {
+	srvLookupMutex.Lock()
+	defer srvLookupMutex.Unlock()
+	if addrs, ok := srvLookupCache[name]; ok {
+		addrsCopy := make([]string, len(addrs))
+		copy(addrsCopy, addrs) // making copy because it will be mutated
+		return addrsCopy, nil
+	}
 	_, srvs, err := net.LookupSRV("", "", name)
 	if err != nil {
 		return nil, err
 	}
 	var addrs []string
 	for _, srv := range srvs {
-		host := net.JoinHostPort(srv.Target, strconv.Itoa(int(srv.Port)))
+		hosts, err := net.LookupHost(srv.Target)
+		if err != nil {
+			return nil, err
+		}
+		if len(hosts) == 0 {
+			return nil, fmt.Errorf("unknown error looking up host %v for srv record %v", srv.Target, name)
+		}
+		host := net.JoinHostPort(hosts[0], strconv.Itoa(int(srv.Port)))
 		addrs = append(addrs, host)
 	}
-	return addrs, nil
+	srvLookupCache[name] = addrs
+	addrsCopy := make([]string, len(addrs))
+	copy(addrsCopy, addrs) // making copy because it will be mutated
+	return addrsCopy, nil
 }
 
 // RandomBroker tries to resolve name through a call to LookupSrv. If
