@@ -208,7 +208,38 @@ func (c *GroupClient) CommitOffset(topic string, partition int32, offset, retent
 	req := OffsetCommit.NewRequest(c.GroupId, topic, partition, offset, retentionMs)
 	resp := &OffsetCommit.Response{}
 	if err := c.Call(req, resp); err != nil {
-		return fmt.Errorf("error making commit offsets call: %w", err)
+		return fmt.Errorf("error making commit offset call: %w", err)
 	}
 	return parseOffsetCommitResponse(resp)
+}
+
+// CommitMultiplePartitionsOffsets commits offsets for multiple partitions of a
+// specific topic at once. Accepts topic, and a map of partition -> offset
+// alongside with the time to retain the offsets (in ms)
+func (c *GroupClient) CommitMultiplePartitionsOffsets(topic string, offsets map[int32]int64, retentionMs int64) error {
+	req := OffsetCommit.NewMultiplePartitionsRequest(c.GroupId, topic, offsets, retentionMs)
+	resp := &OffsetCommit.Response{}
+	if err := c.Call(req, resp); err != nil {
+		return fmt.Errorf("error of committing offset for multiple partitions: %w", err)
+	}
+	return parseCommitMultiplePartitionsOffsetsResponse(resp)
+}
+
+// parseCommitMultiplePartitionsOffsetsResponse reads the response of flushing
+// offsets of multiple partitions and returns error if the response malformed OR
+// at least one of them failed
+func parseCommitMultiplePartitionsOffsetsResponse(resp *OffsetCommit.Response) error {
+	if n := len(resp.Topics); n != 1 {
+		return fmt.Errorf("malformed response: unexpected number of topic responses: %d", n)
+	}
+	t := resp.Topics[0]
+	if len(t.Partitions) < 1 {
+		return fmt.Errorf("malformed response: empty list of partition responses")
+	}
+	for _, p := range t.Partitions {
+		if p.ErrorCode != libkafka.ERR_NONE {
+			return &libkafka.Error{Code: p.ErrorCode}
+		}
+	}
+	return nil
 }

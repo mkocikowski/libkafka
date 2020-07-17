@@ -106,6 +106,7 @@ func TestIntegrationGroupOffsets(t *testing.T) {
 		GroupId:   fmt.Sprintf("test-group-%x", rand.Uint32()),
 	}
 	topic := fmt.Sprintf("test-%x", rand.Uint32())
+	multiPartitionedTopic := fmt.Sprintf("test-multi-%x", rand.Uint32())
 	var offset int64
 	var err error
 	// topic doesn't exist and there is no offset commited
@@ -143,6 +144,55 @@ func TestIntegrationGroupOffsets(t *testing.T) {
 		t.Fatal(err)
 	}
 	if offset != 1 {
+		t.Fatal(offset)
+	}
+
+	// CommitMultiplePartitionsOffsets
+	offsets := map[int32]int64{
+		0: 10,
+	}
+	// CommitMultiplePartitionsOffsets to a single-partition topic should be fine
+	if err = c.CommitMultiplePartitionsOffsets(topic, offsets, 1000); err != nil {
+		t.Fatal(err)
+	}
+	offset, err = c.FetchOffset(topic, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offset != 10 {
+		t.Fatal(offset)
+	}
+	offsets = map[int32]int64{
+		0: 100,
+		1: 200,
+	}
+	// CommitMultiplePartitionsOffsets with two partitions to a single-partition topic should
+	// return UNKNOWN_TOPIC_OR_PARTITION error
+	err = c.CommitMultiplePartitionsOffsets(topic, offsets, 1000)
+	if err.(*libkafka.Error).Code != libkafka.ERR_UNKNOWN_TOPIC_OR_PARTITION {
+		t.Fatalf("we didn't get expected UNKNOWN_TOPIC_OR_PARTITION error, got instead: %v", err)
+	}
+	if _, err = CallCreateTopic(bootstrap, nil, multiPartitionedTopic, 2, 1); err != nil {
+		t.Fatalf("we got unexpected error during creating multi-partitioned topic: %v", err)
+	}
+	// CommitOfCommitMultiplePartitionsOffsetsfsets with two partitions to a multi-partitioned topic should be
+	// fine
+	if err = c.CommitMultiplePartitionsOffsets(multiPartitionedTopic, offsets, 1000); err != nil {
+		t.Fatalf("we got unexpected error commit offsets: %v", err)
+	}
+
+	offset, err = c.FetchOffset(multiPartitionedTopic, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offset != 100 {
+		t.Fatal(offset)
+	}
+	offset, err = c.FetchOffset(multiPartitionedTopic, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offset != 200 {
 		t.Fatal(offset)
 	}
 }
