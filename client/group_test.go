@@ -122,7 +122,7 @@ func TestIntegrationGroupOffsets(t *testing.T) {
 		t.Fatal(err)
 	}
 	//
-	if _, err = CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
+	if _, err = CallCreateTopic(bootstrap, topic, 2, 1); err != nil {
 		t.Fatal(err)
 	}
 	// get offset for existing topic but where no offset has been committed
@@ -143,6 +143,42 @@ func TestIntegrationGroupOffsets(t *testing.T) {
 		t.Fatal(err)
 	}
 	if offset != 1 {
+		t.Fatal(offset)
+	}
+	// CommitOffsets
+	offsets := map[int32]int64{
+		0: 10,
+	}
+	if err = c.CommitOffsets(topic, offsets, 1000); err != nil {
+		t.Fatal(err)
+	}
+	offset, err = c.FetchOffset(topic, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offset != 10 {
+		t.Fatal(offset)
+	}
+	// CommitOffsets with two partitions
+	offsets = map[int32]int64{
+		0: 100,
+		1: 200,
+	}
+	if err = c.CommitOffsets(topic, offsets, 1000); err != nil {
+		t.Fatal(err)
+	}
+	offset, err = c.FetchOffset(topic, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offset != 100 {
+		t.Fatal(offset)
+	}
+	offset, err = c.FetchOffset(topic, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offset != 200 {
 		t.Fatal(offset)
 	}
 }

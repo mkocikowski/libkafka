@@ -153,26 +153,53 @@ func (c *GroupClient) FetchOffset(topic string, partition int32) (int64, error) 
 	return parseOffsetFetchResponse(resp)
 }
 
+// parseOffsetCommitResponse parses CommitOffset request and returns error if
+// there are no partitions in the response, or at least one of them has an
+// error.
+//
+// TODO: should we reaturn all errorCodes from all partitions we got in the
+// response?
 func parseOffsetCommitResponse(r *OffsetCommit.Response) error {
 	if n := len(r.Topics); n != 1 {
 		return fmt.Errorf("unexpected number of topic responses: %d", n)
 	}
 	t := r.Topics[0]
-	if n := len(t.Partitions); n != 1 {
-		return fmt.Errorf("unexpected number of topic partition responses: %d", n)
+	if n := len(t.Partitions); n < 1 {
+		return &libkafka.Error{Code: libkafka.ERR_INVALID_PARTITIONS}
 	}
-	p := t.Partitions[0]
-	if p.ErrorCode != libkafka.ERR_NONE {
-		return &libkafka.Error{Code: p.ErrorCode}
+	for _, p := range t.Partitions {
+		if p.ErrorCode != libkafka.ERR_NONE {
+			return &libkafka.Error{Code: p.ErrorCode}
+		}
 	}
 	return nil
 }
 
+// CommitOffset commits offset for a single partition. Method is of backward
+// compatibility, consider using CommitOffsets for committing offsets for a set
+// of partitions
 func (c *GroupClient) CommitOffset(topic string, partition int32, offset, retentionMs int64) error {
-	req := OffsetCommit.NewRequest(c.GroupId, topic, partition, offset, retentionMs)
+	offsets := map[int32]int64{
+		partition: offset,
+	}
+	req := OffsetCommit.NewRequest(c.GroupId, topic, offsets, retentionMs)
+
+	return c.flushOffsets(req)
+}
+
+// CommitOffsets commits offsets for a set of partitions at once. Param offsets
+// represents a map of partition -> offset to be commited
+func (c *GroupClient) CommitOffsets(topic string, offsets map[int32]int64, retentionMs int64) error {
+	req := OffsetCommit.NewRequest(c.GroupId, topic, offsets, retentionMs)
+
+	return c.flushOffsets(req)
+}
+
+func (c *GroupClient) flushOffsets(req *api.Request) error {
 	resp := &OffsetCommit.Response{}
 	if err := c.request(req, resp); err != nil {
 		return fmt.Errorf("error making commit offsets call: %w", err)
 	}
+
 	return parseOffsetCommitResponse(resp)
 }

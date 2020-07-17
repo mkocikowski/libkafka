@@ -4,15 +4,23 @@ import (
 	"github.com/mkocikowski/libkafka/api"
 )
 
-func NewRequest(group, topic string, partition int32, offset, retentionMs int64) *api.Request {
-	p := Partition{
-		PartitionIndex:   partition,
-		CommitedOffset:   offset,
-		CommitedMetadata: "",
+// NewRequest constructs api.Request with ApiKey OffsetCommit. Method supports
+// multiply offsets to be commited at once by providing them in offsets variable
+// which is a map partition -> offset.
+func NewRequest(group, topic string, offsets map[int32]int64, retentionMs int64) *api.Request {
+	offsetsMap := make([]Partition, len(offsets))
+	i := 0
+	for p, o := range offsets {
+		offsetsMap[i] = Partition{
+			PartitionIndex:   p,
+			CommitedOffset:   o,
+			CommitedMetadata: "",
+		}
+		i++
 	}
 	t := Topic{
 		Name:       topic,
-		Partitions: []Partition{p},
+		Partitions: offsetsMap,
 	}
 	return &api.Request{
 		ApiKey:     api.OffsetCommit,
