@@ -66,6 +66,18 @@ func (c *GroupClient) disconnect() error {
 	return nil
 }
 
+// Close the connection to the group coordinator. Nop if no active connection.
+// If there is a request in progress blocks until the request completes. This,
+// like its counterpart in PartitionClient, is intended to give higher level
+// libraries ability to respond to errors by closing the connection (and so
+// forcing reconnect on next call).
+func (c *GroupClient) Close() error { // implement io.Closer
+	c.Lock()
+	defer c.Unlock()
+	c.disconnect()
+	return nil
+}
+
 func (c *GroupClient) request(req *api.Request, v interface{}) error {
 	c.Lock()
 	defer c.Unlock()
