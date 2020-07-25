@@ -78,13 +78,25 @@ func (c *GroupClient) Close() error { // implement io.Closer
 	return nil
 }
 
-func (c *GroupClient) request(req *api.Request, v interface{}) error {
+// Call makes a request (connecting to the coordinator if necessary) and reads
+// the response. If there is error making the request or reading the response,
+// it disconnects. Response is not interpreted (ie, Call does not look at the
+// possible error codes inside the kafka response). The purpose of this method
+// is to allow users to make their "own" requests - using different api
+// version, or calling for multiple topic-partitions. For use, see the source
+// of methods such as FetchOffset (basically, you pass it a struct with the
+// request that will be marshaled into wire format, and a struct pointer into
+// which response will be unmarshaled: these structs are defined in the api
+// package for various api keys, but you can provide your own). This is a
+// low-level method that was private; I decided to make it public to give users
+// more flexibility. We'll see how it goes.
+func (c *GroupClient) Call(req *api.Request, respStructPtr interface{}) error {
 	c.Lock()
 	defer c.Unlock()
 	if err := c.connect(); err != nil {
 		return err
 	}
-	err := call(c.conn, req, v)
+	err := call(c.conn, req, respStructPtr)
 	if err != nil {
 		c.disconnect()
 	}
@@ -94,14 +106,14 @@ func (c *GroupClient) request(req *api.Request, v interface{}) error {
 func (c *GroupClient) callJoin(memberId, protoType string, protocols []JoinGroup.Protocol) (*JoinGroup.Response, error) {
 	req := JoinGroup.NewRequest(c.GroupId, memberId, protoType, protocols)
 	resp := &JoinGroup.Response{}
-	return resp, c.request(req, resp)
+	return resp, c.Call(req, resp)
 }
 
 func (c *GroupClient) callSync(memberId string, generationId int32, assignments []SyncGroup.Assignment) (*SyncGroup.Response, error) {
 	req := SyncGroup.NewRequest(c.GroupId, memberId, generationId, assignments)
 	//log.Printf("%+v", req)
 	resp := &SyncGroup.Response{}
-	return resp, c.request(req, resp)
+	return resp, c.Call(req, resp)
 }
 
 type JoinGroupRequest struct {
@@ -133,7 +145,7 @@ func (c *GroupClient) Sync(req *SyncGroupRequest) (*SyncGroup.Response, error) {
 func (c *GroupClient) Heartbeat(memberId string, generationId int32) (*Heartbeat.Response, error) {
 	req := Heartbeat.NewRequest(c.GroupId, memberId, generationId)
 	resp := &Heartbeat.Response{}
-	return resp, c.request(req, resp)
+	return resp, c.Call(req, resp)
 }
 
 func parseOffsetFetchResponse(r *OffsetFetch.Response) (int64, error) {
@@ -159,7 +171,7 @@ func parseOffsetFetchResponse(r *OffsetFetch.Response) (int64, error) {
 func (c *GroupClient) FetchOffset(topic string, partition int32) (int64, error) {
 	req := OffsetFetch.NewRequest(c.GroupId, topic, partition)
 	resp := &OffsetFetch.Response{}
-	if err := c.request(req, resp); err != nil {
+	if err := c.Call(req, resp); err != nil {
 		return -1, fmt.Errorf("error making fetch offsets call: %w", err)
 	}
 	return parseOffsetFetchResponse(resp)
@@ -183,7 +195,7 @@ func parseOffsetCommitResponse(r *OffsetCommit.Response) error {
 func (c *GroupClient) CommitOffset(topic string, partition int32, offset, retentionMs int64) error {
 	req := OffsetCommit.NewRequest(c.GroupId, topic, partition, offset, retentionMs)
 	resp := &OffsetCommit.Response{}
-	if err := c.request(req, resp); err != nil {
+	if err := c.Call(req, resp); err != nil {
 		return fmt.Errorf("error making commit offsets call: %w", err)
 	}
 	return parseOffsetCommitResponse(resp)
