@@ -160,3 +160,19 @@ func TestUnitTimestampType(t *testing.T) {
 		t.Fatal(c)
 	}
 }
+
+func BenchmarkBuild(b *testing.B) {
+	builder := NewBuilder(time.Now().UTC())
+	for i := 0; i < 1000; i++ {
+		r := record.New(make([]byte, 27), make([]byte, 2751))
+		builder.Add(r)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := builder.Build(time.Now().UTC())
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
