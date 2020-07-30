@@ -91,13 +91,15 @@ func (b *Builder) Build(now time.Time) (*Batch, error) {
 	if len(b.records) == 0 {
 		return nil, ErrEmpty
 	}
+	tmp := make([]byte, binary.MaxVarintLen64)
+	header := make([]byte, 1<<10)
 	buf := new(bytes.Buffer)
 	for i, r := range b.records {
 		if r == nil {
 			return nil, ErrNilRecord
 		}
 		r.OffsetDelta = int64(i)
-		buf.Write(r.Marshal3()) // ~30% improvement over Marshal()
+		r.Marshal4(tmp, header, buf)
 	}
 	marshaledRecords := buf.Bytes()
 	return &Batch{

@@ -3,6 +3,7 @@ package record
 
 import (
 	"encoding/binary"
+	"io"
 
 	"github.com/mkocikowski/libkafka/varint"
 )
@@ -109,4 +110,21 @@ func (r *Record) Marshal3() []byte {
 	offset := binary.MaxVarintLen64 - len(c)
 	copy(b[offset:], c)
 	return b[offset:len(b)]
+}
+
+func (r *Record) Marshal4(tmp, header []byte, dst io.Writer) {
+	header = header[:0] // reset because it will be appended to
+	header = varint.PutZigZag64(header, tmp, int64(r.Attributes))
+	header = varint.PutZigZag64(header, tmp, r.TimestampDelta)
+	header = varint.PutZigZag64(header, tmp, r.OffsetDelta)
+	header = varint.PutZigZag64(header, tmp, r.KeyLen)
+	header = append(header, r.Key...)
+	header = varint.PutZigZag64(header, tmp, r.ValueLen)
+	//
+	length := int64(len(header) + len(r.Value) + 1)
+	n := varint.PutVarint(tmp, uint64(length<<1^(length>>63))) // ZigZag
+	dst.Write(tmp[:n])
+	dst.Write(header)
+	dst.Write(r.Value)
+	dst.Write([]byte{0}) // no kafka record "headers"
 }

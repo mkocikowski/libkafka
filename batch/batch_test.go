@@ -164,7 +164,7 @@ func TestUnitTimestampType(t *testing.T) {
 func BenchmarkBuild(b *testing.B) {
 	builder := NewBuilder(time.Now().UTC())
 	for i := 0; i < 1000; i++ {
-		r := record.New(make([]byte, 27), make([]byte, 2751))
+		r := record.New(make([]byte, 27), make([]byte, 3476))
 		builder.Add(r)
 	}
 	b.ReportAllocs()
