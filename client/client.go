@@ -14,6 +14,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api"
@@ -80,6 +81,16 @@ func connect(bootstrap string) (net.Conn, error) {
 	return net.DialTimeout("tcp", RandomBroker(bootstrap), libkafka.DialTimeout)
 }
 
+func callWithTimeout(conn net.Conn, req *api.Request, v interface{}, timeout time.Duration) error {
+	if timeout > 0 {
+		now := time.Now()
+		if err := conn.SetDeadline(now.Add(timeout)); err != nil {
+			return fmt.Errorf("failed to set connection deadline: %w", err)
+		}
+	}
+	return call(conn, req, v)
+}
+
 func call(conn io.ReadWriter, req *api.Request, v interface{}) error {
 	out := bufio.NewWriter(conn)
 	if _, err := out.Write(req.Bytes()); err != nil {
@@ -104,7 +115,7 @@ func connectAndCall(bootstrap string, req *api.Request, v interface{}) error {
 		return err
 	}
 	defer conn.Close()
-	return call(conn, req, v)
+	return callWithTimeout(conn, req, v, libkafka.ConnTimeout)
 }
 
 func CallApiVersions(bootstrap string) (*ApiVersions.Response, error) {
@@ -116,7 +127,7 @@ func CallApiVersions(bootstrap string) (*ApiVersions.Response, error) {
 func apiVersions(conn net.Conn) (*ApiVersions.Response, error) {
 	req := ApiVersions.NewRequest()
 	resp := &ApiVersions.Response{}
-	return resp, call(conn, req, resp)
+	return resp, callWithTimeout(conn, req, resp, libkafka.ConnTimeout)
 }
 
 func CallMetadata(bootstrap string, topics []string) (*Metadata.Response, error) {
