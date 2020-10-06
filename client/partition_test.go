@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"testing"
 	"time"
 
+	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api/Metadata"
+	"github.com/mkocikowski/libkafka/api/Produce"
 )
 
 func init() {
@@ -108,5 +111,55 @@ func TestUnitLeaderString(t *testing.T) {
 	s := fmt.Sprintf("%v", b)
 	if s != "foo:1:bar:9092" {
 		t.Fatal(s)
+	}
+}
+
+func TestPartitionClient_CallTimeout(t *testing.T) {
+	// start listener on random port
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to start listener: %s", err)
+	}
+	defer ln.Close()
+	go func() {
+		// accept the connection but don't read from it
+		if _, err = ln.Accept(); err != nil {
+			t.Fatalf("failed to accept conn: %s", err)
+		}
+	}()
+
+	// establish connection to the listener
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatalf("failed to dial conn: %s", err)
+	}
+	c := &PartitionClient{conn: conn}
+
+	oldTimeout := libkafka.ConnTimeout
+	defer func() {
+		libkafka.ConnTimeout = oldTimeout
+	}()
+	libkafka.ConnTimeout = 100 * time.Millisecond
+
+	resultCh := make(chan error)
+	defer close(resultCh)
+	// issue an API call via established connection
+	go func() {
+		req := Produce.NewRequest(&Produce.Args{}, nil)
+		req.ApiKey = 1
+		resultCh <- c.call(req, &Produce.Response{})
+	}()
+
+	timeout := time.After(2 * libkafka.ConnTimeout)
+	select {
+	case <-timeout:
+		t.Fatal("test timed out")
+	case err := <-resultCh:
+		if err == nil {
+			t.Fatalf("expected to have timeout err; got nil instead")
+		}
+		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+			t.Fatalf("expected to have timeout error; got %q instead", err)
+		}
 	}
 }

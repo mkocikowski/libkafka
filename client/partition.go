@@ -151,7 +151,7 @@ func (c *PartitionClient) call(req *api.Request, v interface{}) error {
 	if req.ApiKey == api.Produce && c.versions.ApiKeys[api.Produce].MaxVersion == 5 {
 		req.ApiVersion = 5 // downgrade to be able to produce to kafka 1.0
 	}
-	err := call(c.conn, req, v)
+	err := callWithTimeout(c.conn, req, v, libkafka.ConnTimeout)
 	if err != nil {
 		c.disconnect()
 	}

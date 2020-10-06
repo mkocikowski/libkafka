@@ -96,7 +96,7 @@ func (c *GroupClient) Call(req *api.Request, respStructPtr interface{}) error {
 	if err := c.connect(); err != nil {
 		return err
 	}
-	err := call(c.conn, req, respStructPtr)
+	err := callWithTimeout(c.conn, req, respStructPtr, libkafka.ConnTimeout)
 	if err != nil {
 		c.disconnect()
 	}
