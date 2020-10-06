@@ -65,6 +65,8 @@ type PartitionClient struct {
 	// PartitionClient will close the current connection, and open a new
 	// one. Default value of 0 means that no check it made.
 	ConnMaxIdle  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
 	leader       *Metadata.Broker
 	versions     *ApiVersions.Response
 	conn         net.Conn
@@ -150,6 +152,13 @@ func (c *PartitionClient) call(req *api.Request, v interface{}) error {
 	// TODO: remove
 	if req.ApiKey == api.Produce && c.versions.ApiKeys[api.Produce].MaxVersion == 5 {
 		req.ApiVersion = 5 // downgrade to be able to produce to kafka 1.0
+	}
+	now := time.Now()
+	if c.WriteTimeout > 0 {
+		_ = c.conn.SetWriteDeadline(now.Add(c.WriteTimeout))
+	}
+	if c.ReadTimeout > 0 {
+		_ = c.conn.SetReadDeadline(now.Add(c.ReadTimeout))
 	}
 	err := call(c.conn, req, v)
 	if err != nil {
