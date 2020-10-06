@@ -7,7 +7,7 @@ type Error struct {
 	Message string
 }
 
-func (e *Error) Error() string {
+func (e Error) Error() string {
 	s := fmt.Sprintf("error code %d (%s)", e.Code, errorDescriptions[int(e.Code)])
 	if e.Message != "" {
 		s += ": " + e.Message
