@@ -1,8 +1,10 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"testing"
 	"time"
 
@@ -49,4 +51,25 @@ func TestIntegrationCallCreateTopic(t *testing.T) {
 	if _, err := CallCreateTopic("none:9092", topic, 1, 1); err == nil {
 		t.Fatal("expected error")
 	}
+}
+
+func TestIntegrationCallCreateTopicRequestTimeout(t *testing.T) {
+	d := libkafka.RequestTimeout
+	defer func() {
+		libkafka.RequestTimeout = d
+	}()
+	libkafka.RequestTimeout = time.Nanosecond
+	brokers := "localhost:9092"
+	topic := fmt.Sprintf("test-%x", rand.Uint32())
+	_, err := CallCreateTopic(brokers, topic, 1, 2)
+	for {
+		err := errors.Unwrap(err)
+		if err == nil {
+			break
+		}
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			return // success
+		}
+	}
+	t.Fatalf("expected timeout got %v", err)
 }

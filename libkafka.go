@@ -65,13 +65,17 @@ type Batch = batch.Batch
 type Compressor = batch.Compressor
 type Decompressor = batch.Decompressor
 
-// Changing timeouts is not safe for concurrent use. If you want to change it,
-// do it once, right at the beginning.
+// Changing timeouts is not safe for concurrent use. If you want to change
+// them, do it once, right at the beginning.
 var (
-	// DialTimeout value is used in net.DialTimeout calls to connect to kafka
-	// brokers (partition leaders, group coordinators, bootstrap hosts).
+	// DialTimeout value is used in net.DialTimeout calls to connect to
+	// kafka brokers (partition leaders, group coordinators, bootstrap
+	// hosts).
 	DialTimeout = 5 * time.Second
-	// ConnTimeout used for setting deadlines while communicating via TCP.
-	// Set it to zero to prevent setting connection deadlines.
-	ConnTimeout = 60 * time.Second
+	// RequestTimeout used for setting deadlines while communicating via
+	// TCP. Any single api call (request-response) can not take longer than
+	// RequestTimeout. Set it to zero to prevent setting connection
+	// deadlines. MaxWaitTimeMs for fetch requests should not be greater
+	// than RequestTimeout.
+	RequestTimeout = 60 * time.Second
 )

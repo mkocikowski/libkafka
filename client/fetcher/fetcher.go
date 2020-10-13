@@ -56,8 +56,10 @@ type PartitionFetcher struct {
 	client.PartitionClient
 	offset int64
 	//
-	MinBytes      int32
-	MaxBytes      int32
+	MinBytes int32
+	MaxBytes int32
+	// MaxWaitTimeMs defines an alternative threshold to Max/MinBytes. Keep
+	// it < libkafka.RequestTimeout.
 	MaxWaitTimeMs int32
 }
 

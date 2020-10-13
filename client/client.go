@@ -9,7 +9,6 @@ package client
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"math/rand"
 	"net"
 	"strconv"
@@ -77,21 +76,16 @@ func RandomBroker(name string) string {
 	return addrs[0]
 }
 
-func connect(bootstrap string) (net.Conn, error) {
+func connectToRandomBroker(bootstrap string) (net.Conn, error) {
 	return net.DialTimeout("tcp", RandomBroker(bootstrap), libkafka.DialTimeout)
 }
 
-func callWithTimeout(conn net.Conn, req *api.Request, v interface{}, timeout time.Duration) error {
-	if timeout > 0 {
-		now := time.Now()
-		if err := conn.SetDeadline(now.Add(timeout)); err != nil {
+func call(conn net.Conn, req *api.Request, v interface{}) error {
+	if libkafka.RequestTimeout > 0 {
+		if err := conn.SetDeadline(time.Now().Add(libkafka.RequestTimeout)); err != nil {
 			return fmt.Errorf("failed to set connection deadline: %w", err)
 		}
 	}
-	return call(conn, req, v)
-}
-
-func call(conn io.ReadWriter, req *api.Request, v interface{}) error {
 	out := bufio.NewWriter(conn)
 	if _, err := out.Write(req.Bytes()); err != nil {
 		return fmt.Errorf("error sending %T request: %w", req.Body, err)
@@ -109,35 +103,35 @@ func call(conn io.ReadWriter, req *api.Request, v interface{}) error {
 	return nil
 }
 
-func connectAndCall(bootstrap string, req *api.Request, v interface{}) error {
-	conn, err := connect(bootstrap)
+func connectToRandomBrokerAndCall(bootstrap string, req *api.Request, v interface{}) error {
+	conn, err := connectToRandomBroker(bootstrap)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	return callWithTimeout(conn, req, v, libkafka.ConnTimeout)
+	return call(conn, req, v)
 }
 
 func CallApiVersions(bootstrap string) (*ApiVersions.Response, error) {
 	req := ApiVersions.NewRequest()
 	resp := &ApiVersions.Response{}
-	return resp, connectAndCall(bootstrap, req, resp)
+	return resp, connectToRandomBrokerAndCall(bootstrap, req, resp)
 }
 
 func apiVersions(conn net.Conn) (*ApiVersions.Response, error) {
 	req := ApiVersions.NewRequest()
 	resp := &ApiVersions.Response{}
-	return resp, callWithTimeout(conn, req, resp, libkafka.ConnTimeout)
+	return resp, call(conn, req, resp)
 }
 
 func CallMetadata(bootstrap string, topics []string) (*Metadata.Response, error) {
 	req := Metadata.NewRequest(topics)
 	resp := &Metadata.Response{}
-	return resp, connectAndCall(bootstrap, req, resp)
+	return resp, connectToRandomBrokerAndCall(bootstrap, req, resp)
 }
 
 func CallCreateTopic(bootstrap, topic string, numPartitions int32, replicationFactor int16) (*CreateTopics.Response, error) {
 	req := CreateTopics.NewRequest(topic, numPartitions, replicationFactor, []CreateTopics.Config{})
 	resp := &CreateTopics.Response{}
-	return resp, connectAndCall(bootstrap, req, resp)
+	return resp, connectToRandomBrokerAndCall(bootstrap, req, resp)
 }
