@@ -43,7 +43,7 @@ func TestUnitMarshal(t *testing.T) {
 			t.Fatal(b, b4)
 		}
 		//
-		t.Logf("%v %s", b, base64.StdEncoding.EncodeToString(b))
+		//t.Logf("%v %s", b, base64.StdEncoding.EncodeToString(b))
 		r, _ := Unmarshal(b)
 		if !bytes.Equal(r.Key, test.key) {
 			t.Fatal(r.Key, test.key)

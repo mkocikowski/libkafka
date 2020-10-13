@@ -19,7 +19,7 @@ import (
 func CallFindCoordinator(bootstrap, groupId string) (*FindCoordinator.Response, error) {
 	req := FindCoordinator.NewRequest(groupId)
 	resp := &FindCoordinator.Response{}
-	return resp, connectAndCall(bootstrap, req, resp)
+	return resp, connectToRandomBrokerAndCall(bootstrap, req, resp)
 }
 
 func GetGroupCoordinator(bootstrap, groupId string) (string, error) {
@@ -96,7 +96,7 @@ func (c *GroupClient) Call(req *api.Request, respStructPtr interface{}) error {
 	if err := c.connect(); err != nil {
 		return err
 	}
-	err := callWithTimeout(c.conn, req, respStructPtr, libkafka.ConnTimeout)
+	err := call(c.conn, req, respStructPtr)
 	if err != nil {
 		c.disconnect()
 	}
