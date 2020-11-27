@@ -176,3 +176,57 @@ func BenchmarkBuild(b *testing.B) {
 		}
 	}
 }
+
+func TestUnitUnmarshalRecordSetIncorrectMagicBytes(t *testing.T) {
+	var encodedBatchBytes = []byte{
+		0, 0, 0, 0, 0, 0, 0, 0, // First Offset
+		0, 0, 0, 79, // Length
+		0, 0, 0, 0, // Partition Leader Epoch
+		0,                // magic
+		184, 114, 85, 47, // CRC
+		0, 0, // Attributes
+		0, 0, 0, 0, // Last Offset Delta
+		0, 0, 0, 0, 0, 0, 0, 0, // First Timestamp
+		0, 0, 0, 0, 0, 0, 0, 0, // Max Timestamp
+		255, 255, 255, 255, 255, 255, 255, 255, // Producer ID
+		255, 255, // Producer Epoch
+		0, 0, 0, 0, // First Sequence
+		0, 0, 0, 1, // Number of Records
+		//Record sequence
+		58, 0, 0, 0, 0, 46, 116, 101,
+		115, 116, 32, 98, 97, 116, 99,
+		104, 32, 102, 111, 114, 32, 108,
+		105, 98, 107, 97, 102, 107, 97, 0,
+	}
+	_, err := Unmarshal(encodedBatchBytes)
+	if err != UnsupportedMagicError {
+		t.Fatal(err)
+	}
+}
+
+func TestUnitUnmarshalRecordSetCorrectMagicBytes(t *testing.T) {
+	var encodedBatchBytes = []byte{
+		0, 0, 0, 0, 0, 0, 0, 0, // First Offset
+		0, 0, 0, 79, // Length
+		0, 0, 0, 0, // Partition Leader Epoch
+		2,                // magic
+		184, 114, 85, 47, // CRC
+		0, 0, // Attributes
+		0, 0, 0, 0, // Last Offset Delta
+		0, 0, 0, 0, 0, 0, 0, 0, // First Timestamp
+		0, 0, 0, 0, 0, 0, 0, 0, // Max Timestamp
+		255, 255, 255, 255, 255, 255, 255, 255, // Producer ID
+		255, 255, // Producer Epoch
+		0, 0, 0, 0, // First Sequence
+		0, 0, 0, 1, // Number of Records
+		//Record sequence
+		58, 0, 0, 0, 0, 46, 116, 101,
+		115, 116, 32, 98, 97, 116, 99,
+		104, 32, 102, 111, 114, 32, 108,
+		105, 98, 107, 97, 102, 107, 97, 0,
+	}
+	_, err := Unmarshal(encodedBatchBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
