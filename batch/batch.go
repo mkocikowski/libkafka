@@ -118,14 +118,34 @@ func (b *Builder) Build(now time.Time) (*Batch, error) {
 }
 
 var (
-	CorruptedBatchError = errors.New("batch crc does not match bytes")
-	crc32c              = crc32.MakeTable(crc32.Castagnoli)
+	CorruptedBatchError   = errors.New("batch crc does not match bytes")
+	UnsupportedMagicError = errors.New("magic value is not 2")
+	crc32c                = crc32.MakeTable(crc32.Castagnoli)
 )
+
+// Prior to version 0.11 kafka used message sets
+// (https://kafka.apache.org/documentation/#messageset) which always has magic value 0
+// and starting with 0.11 it started using record batches (https://kafka.apache.org/documentation/#recordbatch).
+// libkafka only supports record batches. but, apparently if a pre-0.11 client writes to kafka,
+// the old message set format is used and libkafka doesn't support that.
+// verifyMagicByte checks if magic byte is set to 2 in the either cases,
+// For every batch/messageset the 16th byte of a  will always be pointing
+// to Magic value attribute, which should be always 2 in our current case
+// in case if it is not set 2, it should be return with an error response.
+func verifyMagicByte(batchBytes []byte) error {
+	if batchBytes[16] != 2 {
+		return UnsupportedMagicError
+	}
+	return nil
+}
 
 // Unmarshal the batch. On error batch is nil. If there is an error, it is most
 // likely because the crc failed. In that case there is no way to tell how many
 // records there were in the batch (and to adjust offsets accordingly).
 func Unmarshal(b []byte) (*Batch, error) {
+	if err := verifyMagicByte(b); err != nil {
+		return nil, err
+	}
 	buf := bytes.NewBuffer(b)
 	batch := &Batch{}
 	if err := wire.Read(buf, reflect.ValueOf(batch)); err != nil {
