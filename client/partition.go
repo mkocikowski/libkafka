@@ -68,18 +68,27 @@ type PartitionClient struct {
 	leader       *Metadata.Broker
 	versions     *ApiVersions.Response
 	conn         net.Conn
+	connOpened   time.Time
 	connLastUsed time.Time
 }
 
-// find partition leader, connect to it, and set c.leader
+// if the client has an open connection, check it for libkafka.ConnectionTTL
+// and ConnMaxIdle. if these exceeded, close connection, otherwise noop. if
+// there is no open connection (or it was just closed because of TTL or
+// IdleTimeout) find partition leader, connect to it, and set c.leader
 func (c *PartitionClient) connect() (err error) {
 	if c.conn != nil {
-		if c.ConnMaxIdle == 0 || time.Since(c.connLastUsed) < c.ConnMaxIdle {
+		switch {
+		case libkafka.ConnectionTTL > 0 && time.Since(c.connOpened) > libkafka.ConnectionTTL:
+			// connection exceeded TTL
+			c.disconnect()
+		case c.ConnMaxIdle > 0 && time.Since(c.connLastUsed) > c.ConnMaxIdle:
+			// connection exceeded MaxIdle
+			c.disconnect()
+		default:
+			// ConnTTL and ConnMaxIdle do not apply. Leave connection open
 			return nil
 		}
-		// there is an open connection but no calls have been made for
-		// more than ConnMaxIdle
-		c.disconnect()
 	}
 	c.leader, err = GetPartitionLeader(c.Bootstrap, c.Topic, c.Partition)
 	if err != nil {
@@ -89,7 +98,8 @@ func (c *PartitionClient) connect() (err error) {
 	if err != nil {
 		return fmt.Errorf("error connecting to partition leader: %w", err)
 	}
-	c.connLastUsed = time.Now().UTC()
+	c.connOpened = time.Now().UTC()
+	c.connLastUsed = c.connOpened
 	// version information is needed only for the kafka 1.0 produce hack
 	c.versions, err = apiVersions(c.conn)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkocikowski/libkafka"
 	"github.com/mkocikowski/libkafka/api/Metadata"
 )
 
@@ -94,6 +95,49 @@ func TestIntergationPartitionClientConnectionIdleTimeout(t *testing.T) {
 	// now exceed the timeout
 	time.Sleep(timeout)
 	// third call
+	if _, err := c.ListOffsets(0); err != nil {
+		t.Fatal(err)
+	}
+	// now there should be different connection
+	if c.Conn() == conn {
+		t.Fatal("same connection")
+	}
+}
+
+// the purpose of this test is to test that when libkafka.ConnectionTTL is set
+// connection is automatically closed and reopened when the TTL is exceeded
+func TestIntergationPartitionClientConnectionTTL(t *testing.T) {
+	bootstrap := "localhost:9092"
+	topic := fmt.Sprintf("test-%x", rand.Uint32())
+	if _, err := CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	c := &PartitionClient{
+		Bootstrap: bootstrap,
+		Topic:     topic,
+		Partition: 0,
+	}
+	// make first call to open connection
+	if _, err := c.ListOffsets(0); err != nil {
+		t.Fatal(err)
+	}
+	// record the connection
+	conn := c.Conn()
+	// sleep should not reset connection because no ttl set yet
+	time.Sleep(50 * time.Millisecond)
+	if _, err := c.ListOffsets(0); err != nil {
+		t.Fatal(err)
+	}
+	if c.Conn() != conn {
+		t.Fatal("different connection")
+	}
+	// set TTL (not safe for concurrent use but this just a test)
+	defer func() { libkafka.ConnectionTTL = 0 }()
+	libkafka.ConnectionTTL = time.Millisecond
+	// make another call this one should ttl so connection should be closed and reopened
+	if _, err := c.ListOffsets(0); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := c.ListOffsets(0); err != nil {
 		t.Fatal(err)
 	}
