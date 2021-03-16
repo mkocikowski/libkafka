@@ -55,11 +55,15 @@ type PartitionFetcher struct {
 	sync.Mutex
 	client.PartitionClient
 	offset int64
-	//
+	// The minimum amount of data the server should return for a fetch
+	// request. If insufficient data is available the request will wait for
+	// that much data to accumulate before answering the request (up to
+	// limit set by MaxWaitTimeMs).
 	MinBytes int32
 	MaxBytes int32
-	// MaxWaitTimeMs defines an alternative threshold to Max/MinBytes. Keep
-	// it < libkafka.RequestTimeout.
+	// The maximum amount of time the server will block before answering
+	// the fetch request if there isn't sufficient data to immediately
+	// satisfy the requirement given by MinBytes. Keep it < libkafka.RequestTimeout.
 	MaxWaitTimeMs int32
 }
 
