@@ -78,4 +78,9 @@ var (
 	// deadlines. MaxWaitTimeMs for fetch requests should not be greater
 	// than RequestTimeout.
 	RequestTimeout = 60 * time.Second
+	// ConnectionTTL specifies the max time a connection will stay open
+	// (more accurately: connection will be closed on first request after
+	// the ttl). The TTL counts from the time connection was opened, not
+	// when it was last used.
+	ConnectionTTL time.Duration = 0
 )
