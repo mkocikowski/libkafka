@@ -73,3 +73,14 @@ func TestIntegrationCallCreateTopicRequestTimeout(t *testing.T) {
 	}
 	t.Fatalf("expected timeout got %v", err)
 }
+
+func TestUnitConnectToRandomBrokerAndCallErrorForgetSRV(t *testing.T) {
+	srvLookupCache["foo"] = []string{"bar:1"}
+	err := connectToRandomBrokerAndCall("foo", nil, nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if _, ok := srvLookupCache["foo"]; ok {
+		t.Fatal("expected key to be deleted because of call error")
+	}
+}

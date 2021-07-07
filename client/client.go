@@ -27,9 +27,7 @@ var (
 	srvLookupCache = make(map[string][]string) // TODO: ttl
 )
 
-// LookupSrv returns a list of host:port strings in the order returned by the
-// srv lookup call.
-func LookupSrv(name string) ([]string, error) {
+func lookupSrv(name string) ([]string, error) {
 	srvLookupMutex.Lock()
 	defer srvLookupMutex.Unlock()
 	if addrs, ok := srvLookupCache[name]; ok {
@@ -59,11 +57,17 @@ func LookupSrv(name string) ([]string, error) {
 	return addrsCopy, nil
 }
 
-// RandomBroker tries to resolve name through a call to LookupSrv. If
-// successful it returns a random host:port from the list. If LookupSrv fails
+func forgetSrv(name string) {
+	srvLookupMutex.Lock()
+	delete(srvLookupCache, name)
+	srvLookupMutex.Unlock()
+}
+
+// randomBroker tries to resolve name through a call to lookupSrv. If
+// successful it returns a random host:port from the list. If lookupSrv fails
 // it returns name unmodified (so you can pass "localhost:9092" for example).
-func RandomBroker(name string) string {
-	addrs, err := LookupSrv(name)
+func randomBroker(name string) string {
+	addrs, err := lookupSrv(name)
 	if err != nil {
 		return name
 	}
@@ -77,7 +81,7 @@ func RandomBroker(name string) string {
 }
 
 func connectToRandomBroker(bootstrap string) (net.Conn, error) {
-	return net.DialTimeout("tcp", RandomBroker(bootstrap), libkafka.DialTimeout)
+	return net.DialTimeout("tcp", randomBroker(bootstrap), libkafka.DialTimeout)
 }
 
 func call(conn net.Conn, req *api.Request, v interface{}) error {
@@ -103,9 +107,19 @@ func call(conn net.Conn, req *api.Request, v interface{}) error {
 	return nil
 }
 
-func connectToRandomBrokerAndCall(bootstrap string, req *api.Request, v interface{}) error {
-	conn, err := connectToRandomBroker(bootstrap)
-	if err != nil {
+// this is used for calls that do not need to talk to a specific broker (such
+// as the Metadata call). these are the "bootstrap" calls. if bootstrap is an
+// srv record, that record gets resolved and that resolved value is cached.
+// that cached value is cleared on call error (for example: srv record pointed
+// to a host that used to be a kafka broker but no longer is).
+func connectToRandomBrokerAndCall(bootstrap string, req *api.Request, v interface{}) (err error) {
+	defer func() {
+		if err != nil {
+			forgetSrv(bootstrap)
+		}
+	}()
+	var conn net.Conn
+	if conn, err = connectToRandomBroker(bootstrap); err != nil {
 		return err
 	}
 	defer conn.Close()
