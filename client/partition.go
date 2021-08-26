@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -21,8 +22,8 @@ var (
 	ErrNoLeaderForPartition  = errors.New("no leader for partition")
 )
 
-func GetPartitionLeader(bootstrap, topic string, partition int32) (*Metadata.Broker, error) {
-	meta, err := CallMetadata(bootstrap, []string{topic})
+func GetPartitionLeader(bootstrap string, tlsConfig *tls.Config, topic string, partition int32) (*Metadata.Broker, error) {
+	meta, err := CallMetadata(bootstrap, tlsConfig, []string{topic})
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +53,7 @@ func GetPartitionLeader(bootstrap, topic string, partition int32) (*Metadata.Bro
 type PartitionClient struct {
 	sync.Mutex
 	Bootstrap string // srv or host:port
+	TLS       *tls.Config
 	ClientId  string
 	Topic     string
 	Partition int32
@@ -90,13 +92,21 @@ func (c *PartitionClient) connect() (err error) {
 			return nil
 		}
 	}
-	c.leader, err = GetPartitionLeader(c.Bootstrap, c.Topic, c.Partition)
+	c.leader, err = GetPartitionLeader(c.Bootstrap, c.TLS, c.Topic, c.Partition)
 	if err != nil {
 		return fmt.Errorf("error getting partition leader: %w", err)
 	}
-	c.conn, err = net.DialTimeout("tcp", c.leader.Addr(), libkafka.DialTimeout)
-	if err != nil {
-		return fmt.Errorf("error connecting to partition leader: %w", err)
+	if c.TLS != nil {
+		c.conn, err = tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", c.leader.Addr(), c.TLS)
+		if err != nil {
+			return err
+		}
+	}
+	if c.TLS == nil {
+		c.conn, err = net.DialTimeout("tcp", c.leader.Addr(), libkafka.DialTimeout)
+		if err != nil {
+			return err
+		}
 	}
 	c.connOpened = time.Now().UTC()
 	c.connLastUsed = c.connOpened
@@ -155,7 +165,7 @@ func (c *PartitionClient) call(req *api.Request, v interface{}) error {
 	c.Lock()
 	defer c.Unlock()
 	if err := c.connect(); err != nil {
-		return fmt.Errorf("error connecting: %w", err)
+		return fmt.Errorf("error connecting to partition leader (TLS: %v): %w", c.TLS != nil, err)
 	}
 	// TODO: remove
 	if req.ApiKey == api.Produce && c.versions.ApiKeys[api.Produce].MaxVersion == 5 {
@@ -164,6 +174,7 @@ func (c *PartitionClient) call(req *api.Request, v interface{}) error {
 	err := call(c.conn, req, v)
 	if err != nil {
 		c.disconnect()
+		err = fmt.Errorf("error making call to partition leader (TLS: %v): %w", c.TLS != nil, err)
 	}
 	c.connLastUsed = time.Now().UTC()
 	return err

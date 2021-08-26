@@ -122,7 +122,7 @@ func TestIntegrationGroupOffsets(t *testing.T) {
 		t.Fatal(err)
 	}
 	//
-	if _, err = CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
+	if _, err = CallCreateTopic(bootstrap, nil, topic, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	// get offset for existing topic but where no offset has been committed
@@ -144,5 +144,19 @@ func TestIntegrationGroupOffsets(t *testing.T) {
 	}
 	if offset != 1 {
 		t.Fatal(offset)
+	}
+}
+
+func TestIntegrationGroupOffsetsTLS(t *testing.T) {
+	bootstrap := "localhost:9093"
+	c := &GroupClient{
+		Bootstrap: bootstrap,
+		TLS:       mTLSConfig(),
+		GroupId:   fmt.Sprintf("test-group-%x", rand.Uint32()),
+	}
+	topic := fmt.Sprintf("test-%x", rand.Uint32())
+	// topic doesn't exist and there is no offset commited
+	if _, err := c.FetchOffset(topic, 0); err != nil {
+		t.Fatal(err)
 	}
 }
