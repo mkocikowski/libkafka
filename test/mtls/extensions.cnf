@@ -1,0 +1,4 @@
+[v3_ca]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+subjectAltName = DNS:localhost

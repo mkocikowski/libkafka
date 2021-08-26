@@ -18,11 +18,31 @@ func init() {
 func TestIntergationPartitionClientSuccess(t *testing.T) {
 	bootstrap := "localhost:9092"
 	topic := fmt.Sprintf("test-%x", rand.Uint32())
-	if _, err := CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
+	if _, err := CallCreateTopic(bootstrap, nil, topic, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	c := &PartitionClient{
 		Bootstrap: bootstrap,
+		Topic:     topic,
+		Partition: 0,
+	}
+	r, err := c.ListOffsets(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", r)
+}
+
+func TestIntergationPartitionClientSuccessTLS(t *testing.T) {
+	bootstrap := "localhost:9093"
+	tlsConfig := mTLSConfig()
+	topic := fmt.Sprintf("test-%x", rand.Uint32())
+	if _, err := CallCreateTopic(bootstrap, tlsConfig, topic, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	c := &PartitionClient{
+		Bootstrap: bootstrap,
+		TLS:       tlsConfig,
 		Topic:     topic,
 		Partition: 0,
 	}
@@ -68,7 +88,7 @@ func TestIntergationPartitionClientTopicDoesNotExist(t *testing.T) {
 func TestIntergationPartitionClientConnectionIdleTimeout(t *testing.T) {
 	bootstrap := "localhost:9092"
 	topic := fmt.Sprintf("test-%x", rand.Uint32())
-	if _, err := CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
+	if _, err := CallCreateTopic(bootstrap, nil, topic, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	timeout := 50 * time.Millisecond
@@ -109,7 +129,7 @@ func TestIntergationPartitionClientConnectionIdleTimeout(t *testing.T) {
 func TestIntergationPartitionClientConnectionTTL(t *testing.T) {
 	bootstrap := "localhost:9092"
 	topic := fmt.Sprintf("test-%x", rand.Uint32())
-	if _, err := CallCreateTopic(bootstrap, topic, 1, 1); err != nil {
+	if _, err := CallCreateTopic(bootstrap, nil, topic, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	c := &PartitionClient{
