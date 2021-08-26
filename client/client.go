@@ -8,6 +8,7 @@ package client
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net"
@@ -80,7 +81,10 @@ func randomBroker(name string) string {
 	return addrs[0]
 }
 
-func connectToRandomBroker(bootstrap string) (net.Conn, error) {
+func connectToRandomBroker(bootstrap string, tlsConfig *tls.Config) (net.Conn, error) {
+	if tlsConfig != nil {
+		return tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", randomBroker(bootstrap), tlsConfig)
+	}
 	return net.DialTimeout("tcp", randomBroker(bootstrap), libkafka.DialTimeout)
 }
 
@@ -112,24 +116,27 @@ func call(conn net.Conn, req *api.Request, v interface{}) error {
 // srv record, that record gets resolved and that resolved value is cached.
 // that cached value is cleared on call error (for example: srv record pointed
 // to a host that used to be a kafka broker but no longer is).
-func connectToRandomBrokerAndCall(bootstrap string, req *api.Request, v interface{}) (err error) {
+func connectToRandomBrokerAndCall(bootstrap string, tlsConfig *tls.Config, req *api.Request, v interface{}) (err error) {
 	defer func() {
 		if err != nil {
 			forgetSrv(bootstrap)
 		}
 	}()
 	var conn net.Conn
-	if conn, err = connectToRandomBroker(bootstrap); err != nil {
-		return err
+	if conn, err = connectToRandomBroker(bootstrap, tlsConfig); err != nil {
+		return fmt.Errorf("error connecting to random broker (TLS: %v): %w", tlsConfig != nil, err)
 	}
 	defer conn.Close()
-	return call(conn, req, v)
+	if err := call(conn, req, v); err != nil {
+		return fmt.Errorf("error making call to random broker (TLS: %v): %w", tlsConfig != nil, err)
+	}
+	return nil
 }
 
-func CallApiVersions(bootstrap string) (*ApiVersions.Response, error) {
+func CallApiVersions(bootstrap string, tlsConfig *tls.Config) (*ApiVersions.Response, error) {
 	req := ApiVersions.NewRequest()
 	resp := &ApiVersions.Response{}
-	return resp, connectToRandomBrokerAndCall(bootstrap, req, resp)
+	return resp, connectToRandomBrokerAndCall(bootstrap, tlsConfig, req, resp)
 }
 
 func apiVersions(conn net.Conn) (*ApiVersions.Response, error) {
@@ -138,14 +145,14 @@ func apiVersions(conn net.Conn) (*ApiVersions.Response, error) {
 	return resp, call(conn, req, resp)
 }
 
-func CallMetadata(bootstrap string, topics []string) (*Metadata.Response, error) {
+func CallMetadata(bootstrap string, tlsConfig *tls.Config, topics []string) (*Metadata.Response, error) {
 	req := Metadata.NewRequest(topics)
 	resp := &Metadata.Response{}
-	return resp, connectToRandomBrokerAndCall(bootstrap, req, resp)
+	return resp, connectToRandomBrokerAndCall(bootstrap, tlsConfig, req, resp)
 }
 
-func CallCreateTopic(bootstrap, topic string, numPartitions int32, replicationFactor int16) (*CreateTopics.Response, error) {
+func CallCreateTopic(bootstrap string, tlsConfig *tls.Config, topic string, numPartitions int32, replicationFactor int16) (*CreateTopics.Response, error) {
 	req := CreateTopics.NewRequest(topic, numPartitions, replicationFactor, []CreateTopics.Config{})
 	resp := &CreateTopics.Response{}
-	return resp, connectToRandomBrokerAndCall(bootstrap, req, resp)
+	return resp, connectToRandomBrokerAndCall(bootstrap, tlsConfig, req, resp)
 }

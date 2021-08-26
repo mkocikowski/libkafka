@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"strconv"
@@ -16,14 +17,14 @@ import (
 	"github.com/mkocikowski/libkafka/api/SyncGroup"
 )
 
-func CallFindCoordinator(bootstrap, groupId string) (*FindCoordinator.Response, error) {
+func CallFindCoordinator(bootstrap string, tlsConfig *tls.Config, groupId string) (*FindCoordinator.Response, error) {
 	req := FindCoordinator.NewRequest(groupId)
 	resp := &FindCoordinator.Response{}
-	return resp, connectToRandomBrokerAndCall(bootstrap, req, resp)
+	return resp, connectToRandomBrokerAndCall(bootstrap, tlsConfig, req, resp)
 }
 
-func GetGroupCoordinator(bootstrap, groupId string) (string, error) {
-	resp, err := CallFindCoordinator(bootstrap, groupId)
+func GetGroupCoordinator(bootstrap string, tlsConfig *tls.Config, groupId string) (string, error) {
+	resp, err := CallFindCoordinator(bootstrap, tlsConfig, groupId)
 	if err != nil {
 		return "", fmt.Errorf("error making FindCoordinator call: %w", err)
 	}
@@ -38,6 +39,7 @@ func GetGroupCoordinator(bootstrap, groupId string) (string, error) {
 type GroupClient struct {
 	sync.Mutex
 	Bootstrap string
+	TLS       *tls.Config
 	GroupId   string
 	conn      net.Conn
 }
@@ -46,13 +48,17 @@ func (c *GroupClient) connect() error {
 	if c.conn != nil {
 		return nil
 	}
-	addr, err := GetGroupCoordinator(c.Bootstrap, c.GroupId)
+	addr, err := GetGroupCoordinator(c.Bootstrap, c.TLS, c.GroupId)
 	if err != nil {
 		return err
 	}
-	c.conn, err = net.DialTimeout("tcp", addr, libkafka.DialTimeout)
+	if c.TLS != nil {
+		c.conn, err = tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", addr, c.TLS)
+	} else {
+		c.conn, err = net.DialTimeout("tcp", addr, libkafka.DialTimeout)
+	}
 	if err != nil {
-		return fmt.Errorf("error connecting to group coordinator: %w", err)
+		return fmt.Errorf("error connecting to group coordinator (TLS: %v): %w", c.TLS != nil, err)
 	}
 	return nil
 }
