@@ -146,7 +146,7 @@ func (c *PartitionClient) Close() error { // implement io.Closer
 // since been closed (as happens on error).
 func (c *PartitionClient) Leader() *Metadata.Broker {
 	c.Lock()
-	c.Unlock()
+	defer c.Unlock()
 	return c.leader
 }
 
