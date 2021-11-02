@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -131,6 +132,11 @@ func (c *PartitionClient) disconnect() error {
 	if c.conn == nil {
 		return nil
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("recovered in PartitionClient.disconnect: %v", r)
+		}
+	}()
 	c.conn.Close()
 	c.conn = nil
 	return nil
