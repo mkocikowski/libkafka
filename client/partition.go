@@ -79,6 +79,8 @@ type PartitionClient struct {
 // there is no open connection (or it was just closed because of TTL or
 // IdleTimeout) find partition leader, connect to it, and set c.leader
 func (c *PartitionClient) connect() (err error) {
+	// no mutex here. connect() is called only from call(), and that is
+	// where the mutex is acquired for both connect() and disconnect()
 	if c.conn != nil {
 		switch {
 		case libkafka.ConnectionTTL > 0 && time.Since(c.connOpened) > libkafka.ConnectionTTL:
@@ -124,6 +126,8 @@ func (c *PartitionClient) connect() (err error) {
 // close connection to leader, but do not zero c.leader (so that it can still
 // be accessed with c.Leader call)
 func (c *PartitionClient) disconnect() error {
+	// no mutex here. disconnect() is called only from call() and from
+	// Close(), and that is where the mutex is acquired.
 	if c.conn == nil {
 		return nil
 	}
