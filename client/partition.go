@@ -100,16 +100,18 @@ func (c *PartitionClient) connect() (err error) {
 		return fmt.Errorf("error getting partition leader: %w", err)
 	}
 	if c.TLS != nil {
-		c.conn, err = tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", c.leader.Addr(), c.TLS)
+		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", c.leader.Addr(), c.TLS)
 		if err != nil {
 			return err
 		}
+		c.conn = conn
 	}
 	if c.TLS == nil {
-		c.conn, err = net.DialTimeout("tcp", c.leader.Addr(), libkafka.DialTimeout)
+		conn, err := net.DialTimeout("tcp", c.leader.Addr(), libkafka.DialTimeout)
 		if err != nil {
 			return err
 		}
+		c.conn = conn
 	}
 	c.connOpened = time.Now().UTC()
 	c.connLastUsed = c.connOpened
