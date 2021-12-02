@@ -53,12 +53,18 @@ func (c *GroupClient) connect() error {
 		return err
 	}
 	if c.TLS != nil {
-		c.conn, err = tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", addr, c.TLS)
-	} else {
-		c.conn, err = net.DialTimeout("tcp", addr, libkafka.DialTimeout)
+		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", addr, c.TLS)
+		if err != nil {
+			return err
+		}
+		c.conn = conn
 	}
-	if err != nil {
-		return fmt.Errorf("error connecting to group coordinator (TLS: %v): %w", c.TLS != nil, err)
+	if c.TLS == nil {
+		conn, err := net.DialTimeout("tcp", addr, libkafka.DialTimeout)
+		if err != nil {
+			return err
+		}
+		c.conn = conn
 	}
 	return nil
 }
@@ -100,7 +106,7 @@ func (c *GroupClient) Call(req *api.Request, respStructPtr interface{}) error {
 	c.Lock()
 	defer c.Unlock()
 	if err := c.connect(); err != nil {
-		return err
+		return fmt.Errorf("error connecting to group coordinator (TLS: %v): %w", c.TLS != nil, err)
 	}
 	err := call(c.conn, req, respStructPtr)
 	if err != nil {
