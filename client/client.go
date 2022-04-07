@@ -71,28 +71,32 @@ func forgetSrv(name string) {
 // randomBroker tries to resolve name through a call to lookupSrv. If successful
 // it returns a random host:port from the list. lookupSrv in its turn invokes
 // net.LookupSRV(), unsuccessful result is considered as not an SRV record, so
-// you can pass "localhost:9092" for example. It panics, if resolved SRV record
-// has no hosts.
-func randomBroker(name string) string {
+// you can pass "localhost:9092" for example. It returns error, if resolved SRV
+// record has no hosts.
+func randomBroker(name string) (string, error) {
 	addrs, err := lookupSrv(name)
 	if err != nil {
 		if errors.Is(err, errNotAnSRV) {
-			return name
+			return name, nil
 		}
-		panic(err)
+		return "", err
 	}
 
 	rand.Shuffle(len(addrs), func(i, j int) {
 		addrs[i], addrs[j] = addrs[j], addrs[i]
 	})
-	return addrs[0]
+	return addrs[0], nil
 }
 
 func connectToRandomBroker(bootstrap string, tlsConfig *tls.Config) (net.Conn, error) {
-	if tlsConfig != nil {
-		return tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", randomBroker(bootstrap), tlsConfig)
+	host, err := randomBroker(bootstrap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get random broker: %w", err)
 	}
-	return net.DialTimeout("tcp", randomBroker(bootstrap), libkafka.DialTimeout)
+	if tlsConfig != nil {
+		return tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", host, tlsConfig)
+	}
+	return net.DialTimeout("tcp", host, libkafka.DialTimeout)
 }
 
 func call(conn net.Conn, req *api.Request, v interface{}) error {
