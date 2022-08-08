@@ -9,6 +9,7 @@ package client
 import (
 	"bufio"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -26,6 +27,8 @@ import (
 var (
 	srvLookupMutex sync.Mutex
 	srvLookupCache = make(map[string][]string) // TODO: ttl
+
+	errNotAnSRV = fmt.Errorf("not an SRV")
 )
 
 func lookupSrv(name string) ([]string, error) {
@@ -38,19 +41,20 @@ func lookupSrv(name string) ([]string, error) {
 	}
 	_, srvs, err := net.LookupSRV("", "", name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %s", errNotAnSRV, err)
 	}
 	var addrs []string
 	for _, srv := range srvs {
 		hosts, err := net.LookupHost(srv.Target)
-		if err != nil {
-			return nil, err
-		}
-		if len(hosts) == 0 {
-			return nil, fmt.Errorf("unknown error looking up host %v for srv record %v", srv.Target, name)
+		// skip hosts that can't be resolved
+		if err != nil || len(hosts) == 0 {
+			continue
 		}
 		host := net.JoinHostPort(hosts[0], strconv.Itoa(int(srv.Port)))
 		addrs = append(addrs, host)
+	}
+	if len(addrs) < 1 {
+		return nil, fmt.Errorf("failed to resolve SRV record %q: no hosts found", name)
 	}
 	srvLookupCache[name] = addrs
 	addrsCopy := make([]string, len(addrs))
@@ -64,28 +68,35 @@ func forgetSrv(name string) {
 	srvLookupMutex.Unlock()
 }
 
-// randomBroker tries to resolve name through a call to lookupSrv. If
-// successful it returns a random host:port from the list. If lookupSrv fails
-// it returns name unmodified (so you can pass "localhost:9092" for example).
-func randomBroker(name string) string {
+// randomBroker tries to resolve name through a call to lookupSrv. If successful
+// it returns a random host:port from the list. lookupSrv in its turn invokes
+// net.LookupSRV(), unsuccessful result is considered as not an SRV record, so
+// you can pass "localhost:9092" for example. It returns error, if resolved SRV
+// record has no hosts.
+func randomBroker(name string) (string, error) {
 	addrs, err := lookupSrv(name)
 	if err != nil {
-		return name
+		if errors.Is(err, errNotAnSRV) {
+			return name, nil
+		}
+		return "", err
 	}
-	if len(addrs) == 0 { // is this possible?
-		return name
-	}
+
 	rand.Shuffle(len(addrs), func(i, j int) {
 		addrs[i], addrs[j] = addrs[j], addrs[i]
 	})
-	return addrs[0]
+	return addrs[0], nil
 }
 
 func connectToRandomBroker(bootstrap string, tlsConfig *tls.Config) (net.Conn, error) {
-	if tlsConfig != nil {
-		return tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", randomBroker(bootstrap), tlsConfig)
+	host, err := randomBroker(bootstrap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get random broker: %w", err)
 	}
-	return net.DialTimeout("tcp", randomBroker(bootstrap), libkafka.DialTimeout)
+	if tlsConfig != nil {
+		return tls.DialWithDialer(&net.Dialer{Timeout: libkafka.DialTimeout}, "tcp", host, tlsConfig)
+	}
+	return net.DialTimeout("tcp", host, libkafka.DialTimeout)
 }
 
 func call(conn net.Conn, req *api.Request, v interface{}) error {
